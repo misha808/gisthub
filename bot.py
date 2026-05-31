@@ -381,28 +381,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         result, currency = detect_payout(text)
-
-        # Якщо не розпізнано — просимо ввести знову
-        if result.startswith('❓'):
-            await update.message.reply_text(
-                "❌ *Некорректные реквизиты*\n\n"
-                "Пожалуйста, введите корректные данные:\n\n"
-                "🏦 *Карта:* 16 цифр (напр. `4441 1144 1234 5678`)\n"
-                "💎 *Крипто:* TON (`UQ...`), USDT TRC-20 (`T...`)\n"
-                "📱 *Телефон:* `+380XXXXXXXXX`\n"
-                "⭐ *Звёзды:* напишите `звезды`\n\n"
-                "Попробуйте ещё раз 👇",
-                parse_mode="Markdown"
-            )
-            return
-
         context.user_data['waiting_payout'] = False
         context.user_data['req_currency'] = currency
         req_id = db.save_requisite(user_id=update.effective_user.id, raw_text=text, detected_type=result, currency=currency)
         context.user_data['req_db_id'] = req_id
         keyboard = [[InlineKeyboardButton("✅ Подтвердить", callback_data="confirm_req"), InlineKeyboardButton("✏️ Изменить", callback_data="sell_nft")]]
         await update.message.reply_text(
-            f"✅ *Способ выплаты подтверждён:*\n`{text}`\n\n{result}\n\nМенеджер свяжется с вами для завершения сделки 🤝",
+            f"✅ *Способ выплаты принят:*\n`{text}`\n\n{result}\n\nМенеджер свяжется с вами для завершения сделки 🤝",
             parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
@@ -464,11 +449,18 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
         buyout_ton = context.user_data.get('buyout_ton')
         rates = context.user_data.get('nft_rates', {})
 
-        keyboard = [[InlineKeyboardButton("💼 Посмотреть баланс", web_app={"url": MINI_APP_URL})]]
+        user_id = query.from_user.id
+        keyboard = [
+            [InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})],
+            [InlineKeyboardButton("✍️ Написать менеджеру", url="https://t.me/gifthub_manager")],
+        ]
 
         await query.message.reply_text(
             f"✅ *Способ выплаты подтверждён!*\n\n"
-            f"⏳ Ожидайте пополнение баланса...",
+            f"📩 Напишите менеджеру @gifthub_manager и отправьте ваш ID:\n\n"
+            f"`{user_id}`\n\n"
+            f"_(нажмите на ID чтобы скопировать)_\n\n"
+            f"⏳ После отправки NFT — баланс будет пополнен автоматически.",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -496,15 +488,47 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     args = context.args
     if len(args) < 3:
-        await update.message.reply_text("Використання:\n`/topup USER_ID СУМА ВАЛЮТА`\n\nНаприклад:\n`/topup 123456789 5.5 TON`", parse_mode="Markdown")
+        await update.message.reply_text(
+            "Використання:\n`/topup USER_ID СУМА ВАЛЮТА`\n\nНаприклад:\n`/topup 123456789 5.5 TON`",
+            parse_mode="Markdown"
+        )
         return
     try:
         user_id = int(args[0])
-        display = f"{args[1]} {args[2].upper()}"
-        db.log_balance_topup(user_id=user_id, deal_id=None, amount_display=display)
-        await update.message.reply_text(f"✅ Баланс поповнено\nЮзер: `{user_id}`\nСума: `{display}`", parse_mode="Markdown")
+        amount_str = args[1]
+        currency = args[2].upper()
+        display = f"{amount_str} {currency}"
+
+        # Визначаємо суму в TON
         try:
-            await context.bot.send_message(chat_id=user_id, text=f"💰 *Ваш баланс пополнен!*\n\n+{display}", parse_mode="Markdown")
+            amount_num = float(amount_str)
+        except:
+            amount_num = 0.0
+
+        ton_amount = amount_num if currency == 'TON' else None
+
+        # Створюємо deal зі статусом paid — щоб мініапка показала баланс
+        deal_id = db.create_deal(
+            user_id=user_id,
+            nft_lookup_id=None,
+            requisite_id=None,
+            buyout_ton=ton_amount,
+            buyout_display=display,
+            currency=currency,
+        )
+        db.mark_deal_paid(deal_id)
+        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}")
+
+        await update.message.reply_text(
+            f"✅ *Баланс поповнено*\nЮзер: `{user_id}`\nСума: `{display}`",
+            parse_mode="Markdown"
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"💰 *Ваш баланс пополнен!*\n\n+{display}\n\nОткройте кошелёк чтобы проверить 👇",
+                parse_mode="Markdown"
+            )
         except Exception as e:
             await update.message.reply_text(f"⚠️ Не вдалось повідомити юзера: {e}")
     except Exception as e:
@@ -528,6 +552,61 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==================== ЗАПУСК ====================
 
+async def auto_topup_on_id(event, bot):
+    """
+    Коли хтось пише @gifthub_manager своє Telegram ID —
+    Telethon автоматично знаходить pending deal і поповнює баланс.
+    """
+    try:
+        text = event.message.text.strip() if event.message.text else ""
+
+        # Перевіряємо чи це число (Telegram ID)
+        if not re.match(r'^\d{5,15}$', text):
+            return
+
+        user_id = int(text)
+
+        # Шукаємо останній pending deal цього юзера
+        with db.get_conn() as conn:
+            deal = conn.execute(
+                "SELECT * FROM deals WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1",
+                (user_id,)
+            ).fetchone()
+
+        if not deal:
+            await event.reply(f"⚠️ Немає активних угод для юзера `{user_id}`")
+            return
+
+        deal_id = deal['id']
+        buyout_ton = deal['buyout_ton']
+        buyout_display = deal['buyout_display']
+        currency = deal['currency']
+
+        # Поповнюємо баланс
+        db.mark_deal_paid(deal_id)
+        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{buyout_display}")
+
+        # Повідомляємо менеджера
+        await event.reply(
+            f"✅ Баланс поповнено автоматично\n"
+            f"Юзер: `{user_id}`\n"
+            f"Сума: `{buyout_display}`"
+        )
+
+        # Повідомляємо юзера через бота
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=f"💰 *Ваш баланс пополнен!*\n\n+{buyout_display}\n\nОткройте кошелёк чтобы проверить 👇",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"[auto_topup] Не вдалось повідомити юзера: {e}")
+
+    except Exception as e:
+        print(f"[auto_topup] Помилка: {e}")
+
+
 async def main():
     global telethon_client
     db.init_db()
@@ -539,6 +618,17 @@ async def main():
     set_telethon_client(telethon_client)
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     set_bot(app.bot)
+
+    # Слухаємо вхідні повідомлення в особистих чатах
+    from telethon import events
+    @telethon_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+    async def on_manager_message(event):
+        # Ігноруємо повідомлення від ботів і від PriceNFTbot
+        sender = await event.get_sender()
+        if getattr(sender, 'bot', False):
+            return
+        await auto_topup_on_id(event, app.bot)
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", admin_stats))
     app.add_handler(CommandHandler("topup", admin_topup))
