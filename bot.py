@@ -515,14 +515,14 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}")
 
         await update.message.reply_text(
-            f"✅ *Баланс поповнено*\nЮзер: `{user_id}`\nСума: `{display}`",
-            parse_mode="Markdown"
+            f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
         )
         try:
+            keyboard = [[InlineKeyboardButton("💼 Посмотреть баланс", web_app={"url": MINI_APP_URL})]]
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"💰 *Ваш баланс пополнен!*\n\n+{display}\n\nОткройте кошелёк чтобы проверить 👇",
-                parse_mode="Markdown"
+                text="💰 Ваш баланс пополнен!\n\n+" + display,
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
         except Exception as e:
             await update.message.reply_text(f"⚠️ Не вдалось повідомити юзера: {e}")
@@ -560,6 +560,11 @@ async def auto_topup_on_id(event, bot):
             return
 
         user_id = int(text)
+
+        # Ігноруємо якщо це адмін пише сам собі
+        sender = await event.get_sender()
+        if sender and sender.id == ADMIN_ID:
+            return
 
         # Шукаємо останній pending deal цього юзера
         with db.get_conn() as conn:
