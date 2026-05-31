@@ -455,14 +455,7 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton("✍️ Написать менеджеру", url="https://t.me/gifthub_manager")],
         ]
 
-        msg_text = (
-                "✅ Способ выплаты подтверждён!\n\n"
-                "📩 Напишите менеджеру @gifthub_manager"
-                " и отправьте ваш ID:\n\n"
-                + str(user_id) +
-                "\n\nНажмите на ID чтобы скопировать\n\n"
-                "⏳ После отправки NFT - баланс будет пополнен."
-        )
+        msg_text = "\u2705 Sposob viplati podtverzhden!\n\n\U0001f4e9 Napishite menedzheru @gifthub_manager i otpravte vash ID:\n\n" + str(user_id) + "\n\nNazhmi na ID chtobi skopirovat\n\n\u23f3 Posle otpravki NFT — balans budet popolnen."
         await query.message.reply_text(
             msg_text,
             reply_markup=InlineKeyboardMarkup(keyboard)
@@ -596,12 +589,13 @@ async def auto_topup_on_id(event, bot):
             f"Сума: `{buyout_display}`"
         )
 
-        # Повідомляємо юзера через бота
+        # Повідомляємо юзера через бота з кнопкою
         try:
+            keyboard = [[InlineKeyboardButton("💼 Посмотреть баланс", web_app={"url": MINI_APP_URL})]]
             await bot.send_message(
                 chat_id=user_id,
-                text=f"💰 *Ваш баланс пополнен!*\n\n+{buyout_display}\n\nОткройте кошелёк чтобы проверить 👇",
-                parse_mode="Markdown"
+                text=f"💰 Ваш баланс пополнен!\n\n+{buyout_display}",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
         except Exception as e:
             print(f"[auto_topup] Не вдалось повідомити юзера: {e}")
