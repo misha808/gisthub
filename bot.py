@@ -455,20 +455,23 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton("✍️ Написать менеджеру", url="https://t.me/gifthub_manager")],
         ]
 
-        await query.message.reply_text(
-            f"✅ Способ выплаты подтверждён!
+        msg_text = (
+            "✅ Способ выплаты подтверждён!
 
 "
-            f"📩 Напишите менеджеру @gifthub_manager и отправьте ваш ID:
+            "📩 Напишите менеджеру @gifthub_manager и отправьте ваш ID:
 
 "
             f"{user_id}
 
 "
-            f"Нажмите на ID чтобы скопировать
+            "Нажмите на ID чтобы скопировать
 
 "
-            f"⏳ После отправки NFT — баланс будет пополнен автоматически.",
+            "⏳ После отправки NFT — баланс будет пополнен автоматически."
+        )
+        await query.message.reply_text(
+            msg_text,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
