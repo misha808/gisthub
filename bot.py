@@ -16,7 +16,7 @@ BOT_TOKEN = "8858984918:AAHMwoQRpiLhxhCloq9_HvI26pL9Dfuq2Os"
 API_ID = 36954581
 API_HASH = "fa0d629367552da18ec8db6430f2a620"
 PRICE_BOT = "PriceNFTbot"
-MINI_APP_URL = "https://gisthub-production.up.railway.app/"  # заміни на свій URL з Railway
+MINI_APP_URL = "https://gisthub-production.up.railway.app"  # заміни на свій URL з Railway
 
 MARKET_MARKUP = 1.70
 BUYOUT_PERCENT = 0.95
@@ -381,13 +381,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         result, currency = detect_payout(text)
+
+        # Якщо не розпізнано — просимо ввести знову
+        if result.startswith('❓'):
+            await update.message.reply_text(
+                "❌ *Некорректные реквизиты*\n\n"
+                "Пожалуйста, введите корректные данные:\n\n"
+                "🏦 *Карта:* 16 цифр (напр. `4441 1144 1234 5678`)\n"
+                "💎 *Крипто:* TON (`UQ...`), USDT TRC-20 (`T...`)\n"
+                "📱 *Телефон:* `+380XXXXXXXXX`\n"
+                "⭐ *Звёзды:* напишите `звезды`\n\n"
+                "Попробуйте ещё раз 👇",
+                parse_mode="Markdown"
+            )
+            return
+
         context.user_data['waiting_payout'] = False
         context.user_data['req_currency'] = currency
         req_id = db.save_requisite(user_id=update.effective_user.id, raw_text=text, detected_type=result, currency=currency)
         context.user_data['req_db_id'] = req_id
         keyboard = [[InlineKeyboardButton("✅ Подтвердить", callback_data="confirm_req"), InlineKeyboardButton("✏️ Изменить", callback_data="sell_nft")]]
         await update.message.reply_text(
-            f"✅ *Способ выплаты принят:*\n`{text}`\n\n{result}\n\nМенеджер свяжется с вами для завершения сделки 🤝",
+            f"✅ *Способ выплаты подтверждён:*\n`{text}`\n\n{result}\n\nМенеджер свяжется с вами для завершения сделки 🤝",
             parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
