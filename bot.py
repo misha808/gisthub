@@ -470,9 +470,8 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "✅ Способ выплаты подтверждён!\n\n"
             "📩 Напишите менеджеру @gifthub_manager"
             " и отправьте ваш ID:\n\n"
-            f"{user_id}\n\n"
-            "⏳ После отправки NFT подарка менеджер пополнит ваш баланс.",
-            parse_mode="Markdown",
+            + str(user_id) +
+            "\n\nПосле отправки NFT подарка менеджер пополнит ваш баланс.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
