@@ -448,33 +448,33 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
         currency = context.user_data.get('req_currency', 'USD')
         buyout_ton = context.user_data.get('buyout_ton')
         rates = context.user_data.get('nft_rates', {})
-
         user_id = query.from_user.id
+
         keyboard = [
             [InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})],
             [InlineKeyboardButton("✍️ Написать менеджеру", url="https://t.me/gifthub_manager")],
         ]
 
-        msg_text = "\u2705 Sposob viplati podtverzhden!\n\n\U0001f4e9 Napishite menedzheru @gifthub_manager i otpravte vash ID:\n\n" + str(user_id) + "\n\nNazhmi na ID chtobi skopirovat\n\n\u23f3 Posle otpravki NFT — balans budet popolnen."
-        await query.message.reply_text(
-            msg_text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
         if buyout_ton and rates:
             buyout_str = get_buyout_in_currency(buyout_ton, rates, currency)
             deal_id = db.create_deal(
-                user_id=query.from_user.id,
+                user_id=user_id,
                 nft_lookup_id=context.user_data.get('nft_lookup_db_id'),
                 requisite_id=context.user_data.get('req_db_id'),
                 buyout_ton=buyout_ton, buyout_display=buyout_str, currency=currency,
             )
             context.user_data['current_deal_id'] = deal_id
-            launch_gift_timer(bot=context.bot, user_id=query.from_user.id, deal_id=deal_id, buyout_display=buyout_str)
-            await query.message.reply_text(
-                "⏳ *У вас есть 10 минут чтобы отправить NFT подарок!*\n\nКак только получим — сразу уведомим.",
-                parse_mode="Markdown"
-            )
+            launch_gift_timer(bot=context.bot, user_id=user_id, deal_id=deal_id, buyout_display=buyout_str)
+
+        await query.message.reply_text(
+            "✅ Способ выплаты подтверждён!\n\n"
+            "📩 Напишите менеджеру @gifthub_manager"
+            " и отправьте ваш ID:\n\n"
+            f"{user_id}\n\n"
+            "⏳ После отправки NFT подарка менеджер пополнит ваш баланс.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
 
 # ==================== АДМІН ====================
