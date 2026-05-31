@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HubGift Wallet</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: #ffffff10;
+    --accent: #4facfe;
+    --accent2: #00f2fe;
+    --green: #00d68f;
+    --red: #ff4d6d;
+    --text: #ffffff;
+    --text2: #8888aa;
+    --text3: #555570;
+  }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: 80px;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .header-logo {
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-btn {
+    width: 36px; height: 36px;
+    background: var(--surface);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+    color: var(--text2);
+    font-size: 16px;
+  }
+
+  /* ===== PAGES ===== */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== WALLET PAGE ===== */
+  .balance-card {
+    margin: 8px 16px 16px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+    border-radius: 24px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .balance-card::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, #4facfe20, transparent 70%);
+    pointer-events: none;
+  }
+
+  .balance-label {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .eye-btn {
+    background: none; border: none; color: var(--text2);
+    cursor: pointer; font-size: 14px; padding: 0;
+  }
+
+  .balance-amount {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+
+  .balance-ton {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 24px;
+  }
+
+  .action-btns {
+    display: flex;
+    gap: 12px;
+  }
+
+  .action-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .action-icon {
+    width: 48px; height: 48px;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    transition: transform 0.15s, background 0.15s;
+  }
+
+  .action-btn:active .action-icon {
+    transform: scale(0.92);
+    background: rgba(255,255,255,0.2);
+  }
+
+  .action-label {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  /* ===== SETUP BANNER ===== */
+  .setup-banner {
+    margin: 0 16px 16px;
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .setup-progress {
+    width: 44px; height: 44px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .setup-progress svg {
+    transform: rotate(-90deg);
+  }
+
+  .setup-progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .setup-info { flex: 1; }
+  .setup-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .setup-sub { font-size: 12px; color: var(--text2); }
+  .setup-arrow { color: var(--text3); font-size: 16px; }
+
+  /* ===== ASSETS ===== */
+  .section-title {
+    padding: 0 20px 12px;
+    font-size: 13px;
+    color: var(--text2);
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .section-link {
+    color: var(--accent);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .asset-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .asset-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .asset-item:active { background: var(--surface2); }
+
+  .asset-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .asset-info { flex: 1; }
+  .asset-name { font-size: 15px; font-weight: 500; }
+  .asset-price { font-size: 13px; color: var(--text2); }
+  .asset-change { font-size: 11px; margin-left: 4px; }
+  .asset-change.up { color: var(--green); }
+  .asset-change.down { color: var(--red); }
+
+  .asset-balance { text-align: right; }
+  .asset-amount { font-size: 15px; font-weight: 500; }
+  .asset-usd { font-size: 13px; color: var(--text2); }
+
+  /* ===== HISTORY ===== */
+  .history-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 16px;
+  }
+
+  .history-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .history-icon.in { background: #00d68f15; }
+  .history-icon.out { background: #ff4d6d15; }
+
+  .history-info { flex: 1; }
+  .history-title { font-size: 15px; font-weight: 500; }
+  .history-date { font-size: 12px; color: var(--text2); }
+
+  .history-amount { text-align: right; }
+  .history-amount.in { color: var(--green); font-size: 15px; font-weight: 600; }
+  .history-amount.out { color: var(--red); font-size: 15px; font-weight: 600; }
+  .history-status { font-size: 12px; color: var(--text2); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text2);
+  }
+
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 15px; }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px 0 20px;
+    z-index: 100;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    transition: color 0.15s;
+  }
+
+  .nav-item.active { color: var(--accent); }
+
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 10px; font-weight: 500; }
+
+  /* ===== MODALS ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    padding: 20px;
+    width: 100%;
+    animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .modal-address {
+    background: var(--surface2);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    word-break: break-all;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    border: 1px solid var(--border);
+  }
+
+  .modal-address strong {
+    display: block;
+    color: var(--text);
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+
+  .modal-warning {
+    background: #ff4d6d10;
+    border: 1px solid #ff4d6d30;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #ff8fa0;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+
+  .btn:active { opacity: 0.8; transform: scale(0.98); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+  }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    margin-top: 10px;
+  }
+
+  /* ===== WITHDRAW MODAL ===== */
+  .withdraw-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: border-color 0.15s;
+  }
+
+  .withdraw-option:active { border-color: var(--accent); }
+
+  .withdraw-icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+
+  .withdraw-info { flex: 1; }
+  .withdraw-title { font-size: 15px; font-weight: 500; }
+  .withdraw-sub { font-size: 13px; color: var(--text2); }
+  .withdraw-arrow { color: var(--text3); }
+
+  /* ===== EXCHANGE PAGE ===== */
+  .exchange-info {
+    margin: 0 16px;
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .exchange-rate {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 12px 0 4px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .stars-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 16px 0;
+  }
+
+  .stars-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .stars-card-icon {
+    font-size: 32px;
+    width: 52px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface2);
+    border-radius: 50%;
+  }
+
+  /* ===== SETTINGS PAGE ===== */
+  .settings-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .settings-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: var(--surface);
+    border-radius: 16px;
+    cursor: pointer;
+  }
+
+  .settings-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .settings-text { flex: 1; font-size: 15px; }
+  .settings-arrow { color: var(--text3); font-size: 16px; }
+
+  .profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    margin-bottom: 8px;
+  }
+
+  .profile-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .profile-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .profile-id { font-size: 13px; color: var(--text2); }
+
+  .toast {
+    position: fixed;
+    top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--green);
+    color: #000;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Скопировано</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">HubGift</div>
+  <button class="header-btn" onclick="showPage('settings')">👤</button>
+</div>
+
+<!-- ===== WALLET PAGE ===== -->
+<div class="page active" id="page-wallet">
+
+  <!-- Balance Card -->
+  <div class="balance-card">
+    <div class="balance-label">
+      Общий баланс в USD
+      <button class="eye-btn" onclick="toggleBalance()" id="eyeBtn">👁</button>
+    </div>
+    <div class="balance-amount" id="balanceUsd">$0.00</div>
+    <div class="balance-ton" id="balanceTon">0 TON</div>
+
+    <div class="action-btns">
+      <button class="action-btn" onclick="showDeposit()">
+        <div class="action-icon">↙️</div>
+        <span class="action-label">Пополнить</span>
+      </button>
+      <button class="action-btn" onclick="showWithdraw()">
+        <div class="action-icon">↗️</div>
+        <span class="action-label">Вывести</span>
+      </button>
+      <button class="action-btn" onclick="showPage('history')">
+        <div class="action-icon">📋</div>
+        <span class="action-label">История</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Assets -->
+  <div class="section-title">
+    <span>Мои активы</span>
+    <span class="section-link" onclick="showPage('history')">Скрыть мелкие →</span>
+  </div>
+
+  <div class="asset-list" id="assetList">
+    <div class="asset-item">
+      <div class="asset-icon" style="background:#0098ea20">💎</div>
+      <div class="asset-info">
+        <div class="asset-name">Toncoin</div>
+        <div class="asset-price">$<span id="tonPrice">--</span> <span class="asset-change up" id="tonChange"></span></div>
+      </div>
+      <div class="asset-balance">
+        <div class="asset-amount" id="tonBalance">0 TON</div>
+        <div class="asset-usd" id="tonBalanceUsd">$0</div>
+      </div>
+    </div>
+    <div class="asset-item">
+      <div class="asset-icon" style="background:#26a17b20">💵</div>
+      <div class="asset-info">
+        <div class="asset-name">Tether</div>
+        <div class="asset-price">$1.00</div>
+      </div>
+      <div class="asset-balance">
+        <div class="asset-amount">0 USDT</div>
+        <div class="asset-usd">$0</div>
+      </div>
+    </div>
+    <div class="asset-item">
+      <div class="asset-icon" style="background:#ffcc0020">⭐</div>
+      <div class="asset-info">
+        <div class="asset-name">Stars</div>
+        <div class="asset-price">1⭐ = 1.5 руб</div>
+      </div>
+      <div class="asset-balance">
+        <div class="asset-amount" id="starsBalance">0 ⭐</div>
+        <div class="asset-usd" id="starsBalanceRub">0 руб</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HISTORY PAGE ===== -->
+<div class="page" id="page-history">
+  <div style="padding: 0 20px 16px; font-size: 20px; font-weight: 700;">История</div>
+  <div class="history-list" id="historyList">
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <div class="empty-text">Транзакций пока нет</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EXCHANGE PAGE ===== -->
+<div class="page" id="page-exchange">
+  <div style="padding: 0 20px 16px; font-size: 20px; font-weight: 700;">Обмен</div>
+
+  <div class="exchange-info">
+    <div style="font-size: 14px; color: var(--text2);">Курс выплат звёздами</div>
+    <div class="exchange-rate">1 ⭐ = 1.5 ₽</div>
+    <div style="font-size: 13px; color: var(--text2);">Обновлено только что</div>
+  </div>
+
+  <div class="stars-info">
+    <div class="stars-card">
+      <div class="stars-card-icon">⭐</div>
+      <div>
+        <div style="font-size: 15px; font-weight: 600;">Telegram Stars</div>
+        <div style="font-size: 13px; color: var(--text2); margin-top: 2px;">Мгновенная выплата после сделки</div>
+      </div>
+    </div>
+    <div class="stars-card">
+      <div class="stars-card-icon">💎</div>
+      <div>
+        <div style="font-size: 15px; font-weight: 600;">TON / USDT</div>
+        <div style="font-size: 13px; color: var(--text2); margin-top: 2px;">Крипто выплата на ваш кошелёк</div>
+      </div>
+    </div>
+    <div class="stars-card">
+      <div class="stars-card-icon">🏦</div>
+      <div>
+        <div style="font-size: 15px; font-weight: 600;">Банковская карта</div>
+        <div style="font-size: 13px; color: var(--text2); margin-top: 2px;">UA, RU, KZ, BY и другие страны</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS PAGE ===== -->
+<div class="page" id="page-settings">
+  <div class="profile-header">
+    <div class="profile-avatar">👤</div>
+    <div class="profile-name" id="profileName">Загрузка...</div>
+    <div class="profile-id" id="profileId"></div>
+  </div>
+
+  <div class="settings-list">
+    <div class="settings-item" onclick="copyId()">
+      <div class="settings-icon" style="background:#4facfe20">🪪</div>
+      <div class="settings-text">Скопировать ID</div>
+      <div class="settings-arrow">›</div>
+    </div>
+    <div class="settings-item" onclick="openSupport()">
+      <div class="settings-icon" style="background:#00d68f20">💬</div>
+      <div class="settings-text">Поддержка</div>
+      <div class="settings-arrow">›</div>
+    </div>
+    <div class="settings-item" onclick="openReviews()">
+      <div class="settings-icon" style="background:#ffcc0020">⭐</div>
+      <div class="settings-text">Отзывы</div>
+      <div class="settings-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-wallet" onclick="showPage('wallet')">
+    <div class="nav-icon">💼</div>
+    <div class="nav-label">Кошелёк</div>
+  </button>
+  <button class="nav-item" id="nav-history" onclick="showPage('history')">
+    <div class="nav-icon">🕐</div>
+    <div class="nav-label">История</div>
+  </button>
+  <button class="nav-item" id="nav-exchange" onclick="showPage('exchange')">
+    <div class="nav-icon">↔️</div>
+    <div class="nav-label">Курсы</div>
+  </button>
+  <button class="nav-item" id="nav-settings" onclick="showPage('settings')">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">Профиль</div>
+  </button>
+</div>
+
+<!-- ===== DEPOSIT MODAL ===== -->
+<div class="modal-overlay" id="depositModal" onclick="closeModal('depositModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Пополнение</div>
+
+    <div class="modal-address">
+      <strong>TON адрес</strong>
+      UQAqO75F27lRtexaZVFZXMD90RZ46gom2hgsAr_eVDsi8j9H
+    </div>
+
+    <div class="modal-warning">
+      ⚠️ Отправляйте только TON на этот адрес. Другие монеты будут потеряны.
+    </div>
+
+    <button class="btn btn-primary" onclick="copyAddress()">📋 Скопировать адрес</button>
+    <button class="btn btn-secondary" onclick="closeModal('depositModal')">Закрыть</button>
+  </div>
+</div>
+
+<!-- ===== WITHDRAW MODAL ===== -->
+<div class="modal-overlay" id="withdrawModal" onclick="closeModal('withdrawModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Вывод средств</div>
+
+    <div class="withdraw-option" onclick="withdrawTelegram()">
+      <div class="withdraw-icon" style="background:#0098ea20">💎</div>
+      <div class="withdraw-info">
+        <div class="withdraw-title">TON / USDT</div>
+        <div class="withdraw-sub">На крипто кошелёк</div>
+      </div>
+      <div class="withdraw-arrow">›</div>
+    </div>
+
+    <div class="withdraw-option" onclick="withdrawStars()">
+      <div class="withdraw-icon" style="background:#ffcc0020">⭐</div>
+      <div class="withdraw-info">
+        <div class="withdraw-title">Telegram Stars</div>
+        <div class="withdraw-sub">Мгновенно на аккаунт</div>
+      </div>
+      <div class="withdraw-arrow">›</div>
+    </div>
+
+    <div class="withdraw-option" onclick="withdrawCard()">
+      <div class="withdraw-icon" style="background:#00d68f20">🏦</div>
+      <div class="withdraw-info">
+        <div class="withdraw-title">Банковская карта</div>
+        <div class="withdraw-sub">UA, RU, KZ, BY...</div>
+      </div>
+      <div class="withdraw-arrow">›</div>
+    </div>
+
+    <button class="btn btn-secondary" onclick="closeModal('withdrawModal')" style="margin-top:8px">Закрыть</button>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor('#0a0a0f');
+  tg.setBackgroundColor('#0a0a0f');
+}
+
+const TON_ADDRESS = 'UQAqO75F27lRtexaZVFZXMD90RZ46gom2hgsAr_eVDsi8j9H';
+let balanceHidden = false;
+let userData = null;
+let tonRate = 0;
+
+// ===== INIT =====
+async function init() {
+  // Telegram user info
+  if (tg?.initDataUnsafe?.user) {
+    const u = tg.initDataUnsafe.user;
+    userData = u;
+    document.getElementById('profileName').textContent = u.first_name + (u.last_name ? ' ' + u.last_name : '');
+    document.getElementById('profileId').textContent = 'ID: ' + u.id;
+  } else {
+    document.getElementById('profileName').textContent = 'Пользователь';
+    document.getElementById('profileId').textContent = 'ID: ---';
+  }
+
+  // Fetch TON rate
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+    const d = await r.json();
+    tonRate = d['the-open-network']?.usd || 0;
+    document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
+  } catch(e) {}
+
+  // Fetch balance from API
+  await loadBalance();
+}
+
+async function loadBalance() {
+  const userId = tg?.initDataUnsafe?.user?.id;
+  if (!userId) return;
+
+  try {
+    const r = await fetch(`/api/balance?user_id=${userId}`);
+    const d = await r.json();
+
+    const ton = d.ton || 0;
+    const usd = ton * tonRate;
+    const stars = d.stars || 0;
+
+    document.getElementById('balanceUsd').textContent = '$' + usd.toFixed(2);
+    document.getElementById('balanceTon').textContent = ton.toFixed(4) + ' TON';
+    document.getElementById('tonBalance').textContent = ton.toFixed(4) + ' TON';
+    document.getElementById('tonBalanceUsd').textContent = '$' + usd.toFixed(2);
+    document.getElementById('starsBalance').textContent = stars + ' ⭐';
+    document.getElementById('starsBalanceRub').textContent = (stars * 1.5).toFixed(0) + ' руб';
+
+    // History
+    if (d.history && d.history.length > 0) {
+      const list = document.getElementById('historyList');
+      list.innerHTML = d.history.map(h => `
+        <div class="history-item">
+          <div class="history-icon in">🎁</div>
+          <div class="history-info">
+            <div class="history-title">Получено за NFT</div>
+            <div class="history-date">${formatDate(h.sent_at)}</div>
+          </div>
+          <div>
+            <div class="history-amount in">+${h.amount_display}</div>
+            <div class="history-status">Выплачено</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    console.log('API недоступен, показываю нули');
+  }
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// ===== NAVIGATION =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name)?.classList.add('active');
+  document.getElementById('nav-' + name)?.classList.add('active');
+}
+
+// ===== BALANCE TOGGLE =====
+function toggleBalance() {
+  balanceHidden = !balanceHidden;
+  const els = ['balanceUsd', 'balanceTon', 'tonBalance', 'tonBalanceUsd', 'starsBalance', 'starsBalanceRub'];
+  els.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.filter = balanceHidden ? 'blur(8px)' : 'none';
+  });
+  document.getElementById('eyeBtn').textContent = balanceHidden ? '🙈' : '👁';
+}
+
+// ===== MODALS =====
+function showDeposit() { document.getElementById('depositModal').classList.add('active'); }
+function showWithdraw() { document.getElementById('withdrawModal').classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ===== ACTIONS =====
+function copyAddress() {
+  navigator.clipboard.writeText(TON_ADDRESS).then(() => showToast('✓ Адрес скопирован'));
+  if (tg) tg.HapticFeedback.notificationOccurred('success');
+}
+
+function copyId() {
+  const id = tg?.initDataUnsafe?.user?.id?.toString() || '';
+  if (id) {
+    navigator.clipboard.writeText(id).then(() => showToast('✓ ID скопирован'));
+  }
+}
+
+function withdrawTelegram() {
+  closeModal('withdrawModal');
+  if (tg) tg.sendData(JSON.stringify({action: 'withdraw_ton'}));
+}
+
+function withdrawStars() {
+  closeModal('withdrawModal');
+  if (tg) tg.sendData(JSON.stringify({action: 'withdraw_stars'}));
+}
+
+function withdrawCard() {
+  closeModal('withdrawModal');
+  if (tg) tg.sendData(JSON.stringify({action: 'withdraw_card'}));
+}
+
+function openSupport() {
+  if (tg) tg.openTelegramLink('https://t.me/gifthub_manager');
+}
+
+function openReviews() {
+  if (tg) tg.openTelegramLink('https://t.me/+tqkAlrl7H55iZjYy');
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+from flask import Flask, request, jsonify, send_from_directory
+import database as db
+import os
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'miniapp.html')
+
+@app.route('/api/balance')
+def balance():
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({'error': 'no user_id'}), 400
+
+    # Рахуємо TON баланс з виплачених угод
+    with db.get_conn() as conn:
+        deals = conn.execute(
+            "SELECT buyout_ton, currency FROM deals WHERE user_id = ? AND status = 'paid'",
+            (user_id,)
+        ).fetchall()
+
+        history = conn.execute(
+            "SELECT amount_display, sent_at FROM balance_events WHERE user_id = ? ORDER BY sent_at DESC LIMIT 20",
+            (user_id,)
+        ).fetchall()
+
+    ton = sum(d['buyout_ton'] or 0 for d in deals if d['currency'] == 'TON')
+    stars = sum(
+        int(d['buyout_ton'] or 0)
+        for d in deals if d['currency'] == 'STARS'
+    )
+
+    return jsonify({
+        'ton': round(ton, 4),
+        'stars': stars,
+        'history': [{'amount_display': h['amount_display'], 'sent_at': h['sent_at']} for h in history]
+    })
+
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)

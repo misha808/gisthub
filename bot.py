@@ -652,6 +652,46 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # ==================== АДМІН ====================
 
+ADMIN_ID = 7562324979
+
+async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    args = context.args
+    if len(args) < 3:
+        await update.message.reply_text(
+            "Використання:\n`/topup USER_ID СУМА ВАЛЮТА`\n\nНаприклад:\n`/topup 123456789 5.5 TON`",
+            parse_mode="Markdown"
+        )
+        return
+
+    try:
+        user_id = int(args[0])
+        amount = args[1]
+        currency = args[2].upper()
+        display = f"{amount} {currency}"
+
+        db.log_balance_topup(user_id=user_id, deal_id=None, amount_display=display)
+
+        await update.message.reply_text(
+            f"✅ Баланс поповнено\nЮзер: `{user_id}`\nСума: `{display}`",
+            parse_mode="Markdown"
+        )
+
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"💰 *Ваш баланс пополнен!*\n\n+{display}",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Не вдалось повідомити юзера: {e}")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Помилка: {e}")
+
+
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats = db.get_stats()
     await update.message.reply_text(
@@ -685,6 +725,7 @@ async def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", admin_stats))
+    app.add_handler(CommandHandler("topup", admin_topup))
     app.add_handler(CallbackQueryHandler(confirm_requisites, pattern="^confirm_req$"))
     app.add_handler(CallbackQueryHandler(buttons))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -699,4 +740,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
- 
