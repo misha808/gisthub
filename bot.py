@@ -456,12 +456,19 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
         ]
 
         await query.message.reply_text(
-            f"✅ Способ выплаты подтверждён!\n\n"
-            f"📩 Напишите менеджеру @gifthub_manager и отправьте ваш ID:\n\n"
-            f"{user_id}\n\n"
-            f"Нажмите на ID чтобы скопировать\n\n"
+            f"✅ Способ выплаты подтверждён!
+
+"
+            f"📩 Напишите менеджеру @gifthub_manager и отправьте ваш ID:
+
+"
+            f"{user_id}
+
+"
+            f"Нажмите на ID чтобы скопировать
+
+"
             f"⏳ После отправки NFT — баланс будет пополнен автоматически.",
-            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
