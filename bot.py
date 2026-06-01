@@ -500,7 +500,6 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 buyout_ton=buyout_ton, buyout_display=buyout_str, currency=currency,
             )
             context.user_data['current_deal_id'] = deal_id
-            launch_gift_timer(bot=context.bot, user_id=user_id, deal_id=deal_id, buyout_display=buyout_str)
 
         await query.message.reply_text(
             "✅ Способ выплаты подтверждён!\n\n"
@@ -627,6 +626,10 @@ async def auto_topup_on_id(event, bot):
             deal_id=deal_id,
             amount_display=f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
         )
+
+        # Запускаємо таймер (10 хв на відправку NFT) ПІСЛЯ поповнення балансу
+        ton_display = f"{round(buyout_ton, 4)} TON" if buyout_ton else buyout_display
+        launch_gift_timer(bot=bot, user_id=user_id, deal_id=deal_id, buyout_display=ton_display)
 
         # Пишемо юзеру в бот — юзербот мовчить
         try:
