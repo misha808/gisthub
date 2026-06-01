@@ -627,10 +627,13 @@ async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     set_bot(app.bot)
 
-    # Слухаємо вхідні повідомлення ТІЛЬКИ від @gifthub_manager
+    # Слухаємо всі вхідні приватні повідомлення
     from telethon import events
-    @telethon_client.on(events.NewMessage(incoming=True, from_users='gifthub_manager'))
+    @telethon_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
     async def on_manager_message(event):
+        sender = await event.get_sender()
+        if getattr(sender, 'bot', False):
+            return
         await auto_topup_on_id(event, app.bot)
 
     app.add_handler(CommandHandler("start", start))
