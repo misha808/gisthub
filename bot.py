@@ -549,8 +549,9 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def auto_topup_on_id(event, bot):
     """
-    Коли хтось пише @gifthub_manager своє Telegram ID —
-    Telethon автоматично знаходить pending deal і поповнює баланс.
+    Коли @gifthub_manager пише Telegram ID юзера —
+    автоматично знаходить pending deal і поповнює баланс.
+    Бот (PTB) надсилає повідомлення ЮЗЕРУ в боті, а не в ЛС.
     """
     try:
         text = event.message.text.strip() if event.message.text else ""
@@ -560,11 +561,6 @@ async def auto_topup_on_id(event, bot):
             return
 
         user_id = int(text)
-
-        # Ігноруємо якщо це адмін пише сам собі
-        sender = await event.get_sender()
-        if sender and sender.id == ADMIN_ID:
-            return
 
         # Шукаємо останній pending deal цього юзера
         with db.get_conn() as conn:
@@ -578,31 +574,42 @@ async def auto_topup_on_id(event, bot):
             return
 
         deal_id = deal['id']
-        buyout_ton = deal['buyout_ton']
         buyout_display = deal['buyout_display']
         currency = deal['currency']
 
-        # Поповнюємо баланс
+        # Поповнюємо баланс — зберігаємо суму в TON
+        buyout_ton = deal['buyout_ton']
         db.mark_deal_paid(deal_id)
-        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{buyout_display}")
-
-        # Повідомляємо менеджера
-        await event.reply(
-            f"✅ Баланс поповнено автоматично\n"
-            f"Юзер: `{user_id}`\n"
-            f"Сума: `{buyout_display}`"
+        db.log_balance_topup(
+            user_id=user_id,
+            deal_id=deal_id,
+            amount_display=f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
         )
 
-        # Повідомляємо юзера через бота з кнопкою
+        # Відповідаємо менеджеру що все ок
+        await event.reply(
+            f"✅ Баланс поповнено!\n"
+            f"👤 Юзер: `{user_id}`\n"
+            f"💰 Сума: `{buyout_display}`\n"
+            f"💬 Бот надіслав сповіщення юзеру."
+        )
+
+        # Надсилаємо повідомлення ЮЗЕРУ через PTB бота (в чат бота, не ЛС)
         try:
             keyboard = [[InlineKeyboardButton("💼 Посмотреть баланс", web_app={"url": MINI_APP_URL})]]
             await bot.send_message(
                 chat_id=user_id,
-                text=f"💰 Ваш баланс пополнен!\n\n+{buyout_display}",
+                text=(
+                    f"💰 <b>Ваш баланс пополнен!</b>\n\n"
+                    f"➕ <b>{buyout_display}</b>\n\n"
+                    f"Нажмите кнопку ниже, чтобы открыть кошелёк 👇"
+                ),
+                parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         except Exception as e:
-            print(f"[auto_topup] Не вдалось повідомити юзера: {e}")
+            print(f"[auto_topup] Не вдалось повідомити юзера {user_id}: {e}")
+            await event.reply(f"⚠️ Не вдалось надіслати повідомлення юзеру: {e}")
 
     except Exception as e:
         print(f"[auto_topup] Помилка: {e}")
@@ -620,14 +627,10 @@ async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     set_bot(app.bot)
 
-    # Слухаємо вхідні повідомлення в особистих чатах
+    # Слухаємо вхідні повідомлення ТІЛЬКИ від @gifthub_manager
     from telethon import events
-    @telethon_client.on(events.NewMessage(incoming=True, func=lambda e: e.is_private))
+    @telethon_client.on(events.NewMessage(incoming=True, from_users='gifthub_manager'))
     async def on_manager_message(event):
-        # Ігноруємо повідомлення від ботів і від PriceNFTbot
-        sender = await event.get_sender()
-        if getattr(sender, 'bot', False):
-            return
         await auto_topup_on_id(event, app.bot)
 
     app.add_handler(CommandHandler("start", start))
