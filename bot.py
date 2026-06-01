@@ -16,7 +16,7 @@ BOT_TOKEN = "8858984918:AAHMwoQRpiLhxhCloq9_HvI26pL9Dfuq2Os"
 API_ID = 36954581
 API_HASH = "fa0d629367552da18ec8db6430f2a620"
 PRICE_BOT = "PriceNFTbot"
-MINI_APP_URL = "https://gisthub-production.up.railway.app"  # заміни на свій URL з Railway
+MINI_APP_URL = "https://gisthub-production.up.railway.app/"  # заміни на свій URL з Railway
 
 MARKET_MARKUP = 1.70
 BUYOUT_PERCENT = 0.95
