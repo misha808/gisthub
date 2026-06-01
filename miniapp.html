@@ -790,7 +790,7 @@ if (tg) {
 const TON_ADDRESS = 'UQAqO75F27lRtexaZVFZXMD90RZ46gom2hgsAr_eVDsi8j9H';
 let balanceHidden = false;
 let userData = null;
-let tonRate = 0;
+let tonRate = 3.20;
 
 // ===== INIT =====
 async function init() {
@@ -805,13 +805,8 @@ async function init() {
     document.getElementById('profileId').textContent = 'ID: ---';
   }
 
-  // Fetch TON rate
-  try {
-    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
-    const d = await r.json();
-    tonRate = d['the-open-network']?.usd || 0;
-    document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
-  } catch(e) {}
+  // Курс TON хардкод (оновлюй вручну)
+  document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
 
   // Fetch balance from API
   await loadBalance();
@@ -843,12 +838,12 @@ async function loadBalance() {
         <div class="history-item">
           <div class="history-icon in">🎁</div>
           <div class="history-info">
-            <div class="history-title">Получено за NFT</div>
+            <div class="history-title">Отримано за NFT</div>
             <div class="history-date">${formatDate(h.sent_at)}</div>
           </div>
           <div>
-            <div class="history-amount in">+${h.amount_display}</div>
-            <div class="history-status">Выплачено</div>
+            <div class="history-amount in">${h.amount_display.replace(/^\++/, "+")}</div>
+            <div class="history-status">Отримано</div>
           </div>
         </div>
       `).join('');
@@ -860,8 +855,9 @@ async function loadBalance() {
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const d = new Date(dateStr + 'Z');
+  const local = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+  return local.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // ===== NAVIGATION =====
