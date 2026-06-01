@@ -1,1 +1,1 @@
-web: python api.py & python bot-10.py
+web: python api.py & python bot.py
