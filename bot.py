@@ -38,20 +38,56 @@ telethon_client: TelegramClient = None
 
 # ==================== КУРС TON ====================
 
+# Кеш курсів щоб не спамити API
+_rates_cache = {}
+_rates_cache_time = 0
+
 async def get_ton_rates() -> dict:
+    import time
+    global _rates_cache, _rates_cache_time
+    # Оновлюємо не частіше ніж раз на 5 хвилин
+    if _rates_cache and time.time() - _rates_cache_time < 300:
+        return _rates_cache
     try:
+        # Спробуємо OKX — без обмежень
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                "https://api.coingecko.com/api/v3/simple/price",
-                params={"ids": "the-open-network", "vs_currencies": "usd,uah,rub,kzt,eur,byn,uzs,azn,amd,gel"},
+                "https://www.okx.com/api/v5/market/ticker?instId=TON-USDT",
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
-                data = await resp.json()
-        rates = data.get("the-open-network", {})
-        return {k: rates.get(k, 0) for k in ["usd","uah","rub","kzt","eur","byn","uzs","azn","amd","gel"]}
+                d = await resp.json()
+        ton_usd = float(d["data"][0]["last"])
+
+        # Фіксовані приблизні курси USD до інших валют (оновлюються рідко)
+        fx = {"uah": 41.5, "rub": 92.0, "kzt": 450.0, "eur": 0.92,
+              "byn": 3.25, "uzs": 12700.0, "azn": 1.7, "amd": 390.0, "gel": 2.7}
+
+        rates = {"usd": ton_usd}
+        for cur, rate in fx.items():
+            rates[cur] = round(ton_usd * rate, 2)
+
+        _rates_cache = rates
+        _rates_cache_time = time.time()
+        return rates
     except Exception as e:
-        print(f"[get_ton_rates] Помилка: {e}")
-        return {}
+        print(f"[get_ton_rates] OKX помилка: {e}")
+        # Fallback — CoinGecko з правильним заголовком
+        try:
+            async with aiohttp.ClientSession(headers={"accept": "application/json"}) as session:
+                async with session.get(
+                    "https://api.coingecko.com/api/v3/simple/price",
+                    params={"ids": "the-open-network", "vs_currencies": "usd,uah,rub,kzt,eur"},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    data = await resp.json(content_type=None)
+            rates = data.get("the-open-network", {})
+            result = {k: rates.get(k, 0) for k in ["usd","uah","rub","kzt","eur","byn","uzs","azn","amd","gel"]}
+            _rates_cache = result
+            _rates_cache_time = time.time()
+            return result
+        except Exception as e2:
+            print(f"[get_ton_rates] CoinGecko помилка: {e2}")
+            return _rates_cache if _rates_cache else {}
 
 
 def format_price(ton: float, rates: dict) -> str:
