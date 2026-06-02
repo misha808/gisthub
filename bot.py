@@ -621,10 +621,12 @@ async def auto_topup_on_id(event, bot):
                 buyout_ton = lookup['buyout_ton']
 
         db.mark_deal_paid(deal_id)
+
+        amount_str = f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
         db.log_balance_topup(
             user_id=user_id,
             deal_id=deal_id,
-            amount_display=f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
+            amount_display=amount_str
         )
 
         # Запускаємо таймер (10 хв на відправку NFT) ПІСЛЯ поповнення балансу
@@ -638,7 +640,7 @@ async def auto_topup_on_id(event, bot):
                 chat_id=user_id,
                 text=(
                     f"💰 <b>Ваш баланс пополнен!</b>\n\n"
-                    f"➕ <b>{round(buyout_ton, 4)} TON</b>\n\n"
+                    f"➕ <b>{amount_str}</b>\n\n"
                     f"Нажмите кнопку ниже, чтобы открыть кошелёк 👇"
                 ),
                 parse_mode="HTML",
