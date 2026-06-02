@@ -621,7 +621,6 @@ async def auto_topup_on_id(event, bot):
                 buyout_ton = lookup['buyout_ton']
 
         db.mark_deal_paid(deal_id)
-
         amount_str = f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
         db.log_balance_topup(
             user_id=user_id,
@@ -629,7 +628,7 @@ async def auto_topup_on_id(event, bot):
             amount_display=amount_str
         )
 
-        # Запускаємо таймер (10 хв на відправку NFT) ПІСЛЯ поповнення балансу
+        # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"
         ton_display = f"{round(buyout_ton, 4)} TON" if buyout_ton else buyout_display
         launch_gift_timer(bot=bot, user_id=user_id, deal_id=deal_id, buyout_display=ton_display)
 

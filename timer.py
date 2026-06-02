@@ -2,41 +2,65 @@
 import asyncio
 from datetime import datetime, timedelta
 import database as db
-from gift_checker import check_gift_for_deal
 
 active_timers = {}
 
 async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str):
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    # Одразу пишемо юзеру що треба відправити NFT
+    await bot.send_message(
+        chat_id=user_id,
+        text=(
+            f"📦 <b>Отправьте NFT подарок!</b>\n\n"
+            f"У вас есть <b>10 минут</b> чтобы отправить подарок менеджеру.\n\n"
+            f"💰 После получения NFT выплата <b>{buyout_display}</b> "
+            f"будет отправлена в ближайшее время."
+        ),
+        parse_mode="HTML"
+    )
+
     deadline = datetime.utcnow() + timedelta(minutes=10)
 
     while datetime.utcnow() < deadline:
         await asyncio.sleep(30)
 
-        result = await check_gift_for_deal(deal_id)
+        # Перевіряємо чи NFT вже отримано (gift_checker ставить статус gift_received)
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT status FROM deals WHERE id = ?",
+                (deal_id,)
+            ).fetchone()
 
-        if result:
-            await bot.send_message(
-                chat_id=user_id,
-                text=f"✅ *Подарок получен!*\n\n"
-                     f"💰 Выплата {buyout_display} будет отправлена в ближайшее время.",
-                parse_mode="Markdown"
-            )
+        if row and row['status'] == 'gift_received':
             active_timers.pop(deal_id, None)
             return
 
+    # Час вийшов
     active_timers.pop(deal_id, None)
     with db.get_conn() as conn:
-        conn.execute(
-            "UPDATE deals SET status = 'cancelled' WHERE id = ?",
+        row = conn.execute(
+            "SELECT status FROM deals WHERE id = ?",
             (deal_id,)
+        ).fetchone()
+
+    # Якщо NFT так і не прийшов — скасовуємо
+    if row and row['status'] != 'gift_received':
+        with db.get_conn() as conn:
+            conn.execute(
+                "UPDATE deals SET status = 'cancelled' WHERE id = ?",
+                (deal_id,)
+            )
+        await bot.send_message(
+            chat_id=user_id,
+            text=(
+                "⏰ <b>Время вышло!</b>\n\n"
+                "Подарок не был получен в течение 10 минут.\n"
+                "Сделка отменена. Если это ошибка — напишите в поддержку."
+            ),
+            parse_mode="HTML"
         )
-    await bot.send_message(
-        chat_id=user_id,
-        text="⏰ *Время вышло!*\n\n"
-             "Подарок не был получен в течение 10 минут.\n"
-             "Сделка отменена. Если это ошибка — напишите в поддержку.",
-        parse_mode="Markdown"
-    )
+
 
 def launch_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str):
     task = asyncio.create_task(

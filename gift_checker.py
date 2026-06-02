@@ -45,13 +45,13 @@ def set_telethon_client(client):
                 ).fetchone()
 
             if deal:
-                db.mark_deal_paid(deal['id'])
-                db.log_balance_topup(
-                    user_id=sender_id,
-                    deal_id=deal['id'],
-                    amount_display=deal['buyout_display']
-                )
-                print(f"[gift_checker] Угода #{deal['id']} закрита!")
+                # Ставимо статус gift_received — таймер це побачить і зупиниться
+                with db.get_conn() as conn:
+                    conn.execute(
+                        "UPDATE deals SET status = 'gift_received' WHERE id = ?",
+                        (deal['id'],)
+                    )
+                print(f"[gift_checker] NFT отримано, угода #{deal['id']} gift_received!")
 
                 if _bot:
                     # Пишемо юзеру
