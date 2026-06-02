@@ -12,9 +12,9 @@ from gift_checker import check_gift_for_deal
 import database as db
 
 # ==================== НАЛАШТУВАННЯ ====================
-BOT_TOKEN = "8858984918:AAHMwoQRpiLhxhCloq9_HvI26pL9Dfuq2Os"
-API_ID = 36954581
-API_HASH = "fa0d629367552da18ec8db6430f2a620"
+BOT_TOKEN = "8609277263:AAGk1cmnfBTxF98neiDcbP80B6Yc88hkGo0"
+API_ID = 34537170
+API_HASH = "41711038f3c2952df1b3610b1b47443b"
 PRICE_BOT = "PriceNFTbot"
 MINI_APP_URL = "https://gisthub-production.up.railway.app/"  # заміни на свій URL з Railway
 
@@ -655,7 +655,7 @@ async def main():
     global telethon_client
     db.init_db()
     print("База даних ініціалізована ✅")
-    telethon_client = TelegramClient('auth', API_ID, API_HASH)
+    telethon_client = TelegramClient('auth.session', API_ID, API_HASH)
     await telethon_client.start()
     print("Telethon підключено ✅")
     from gift_checker import set_telethon_client, set_bot
