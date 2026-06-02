@@ -284,7 +284,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔒 Безопасная сделка", callback_data="btn3")],
         [InlineKeyboardButton("🎁 Скуп NFT-подарков", callback_data="btn4")],
         [InlineKeyboardButton("👤 Личный кабинет", callback_data="profile")],
-        [InlineKeyboardButton("💬 Отзывы", url="https://t.me/+tqkAlrl7H55iZjYy"),
+        [InlineKeyboardButton("💬 Отзывы", url="https://t.me/+24FS5JcCHgQxMjli"),
          InlineKeyboardButton("📖 Инструкция", url="https://telegra.ph/Instrukciya-05-24-28")],
     ]
     await update.message.reply_photo(
@@ -503,7 +503,7 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         await query.message.reply_text(
             "✅ Способ выплаты подтверждён!\n\n"
-            "📩 Напишите менеджеру @gifthub_manager"
+            "📩 Напишите менеджеру @mshz_otc"
             " и отправьте ваш ID:\n\n"
             + str(user_id) +
             "\n\nПосле отправки NFT подарка менеджер пополнит ваш баланс.",
