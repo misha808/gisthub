@@ -712,6 +712,10 @@ async def main():
     print("Бот запущений 🚀")
     await app.initialize()
     await app.start()
+
+    from ton_watcher import start_ton_watcher
+    watcher_task = asyncio.create_task(start_ton_watcher(app.bot))
+
     await app.updater.start_polling()
     await asyncio.Event().wait()
 
