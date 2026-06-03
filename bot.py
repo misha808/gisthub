@@ -93,10 +93,15 @@ async def get_ton_rates() -> dict:
 def format_price(ton: float, rates: dict) -> str:
     lines = [f"💎 {ton} TON"]
     if rates.get("usd"): lines.append(f"💵 ${round(ton * rates['usd'], 2)}")
+    if rates.get("eur"): lines.append(f"💶 €{round(ton * rates['eur'], 2)}")
     if rates.get("uah"): lines.append(f"🇺🇦 {round(ton * rates['uah'])} грн")
     if rates.get("rub"): lines.append(f"🇷🇺 {round(ton * rates['rub'])} руб")
     if rates.get("kzt"): lines.append(f"🇰🇿 {round(ton * rates['kzt'])} тенге")
-    if rates.get("eur"): lines.append(f"💶 €{round(ton * rates['eur'], 2)}")
+    if rates.get("byn"): lines.append(f"🇧🇾 {round(ton * rates['byn'], 2)} бел.руб")
+    if rates.get("uzs"): lines.append(f"🇺🇿 {round(ton * rates['uzs'])} сум")
+    if rates.get("azn"): lines.append(f"🇦🇿 {round(ton * rates['azn'], 2)} ман")
+    if rates.get("amd"): lines.append(f"🇦🇲 {round(ton * rates['amd'])} драм")
+    if rates.get("gel"): lines.append(f"🇬🇪 {round(ton * rates['gel'], 2)} лари")
     return " | ".join(lines)
 
 
@@ -322,27 +327,69 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = query.from_user
         username = f"@{user.username}" if user.username else "не указан"
 
-        # Рахуємо баланс
+        import re as _re
         with db.get_conn() as conn:
             events = conn.execute(
                 "SELECT amount_display FROM balance_events WHERE user_id = ? ORDER BY sent_at DESC",
                 (user.id,)
             ).fetchall()
 
-        balance_str = "0.0 USD"
-        if events:
-            balance_str = events[0]['amount_display']
+        ton_total = 0.0
+        for e in events:
+            m = _re.search(r'([\d\.]+)\s*TON', e['amount_display'], _re.IGNORECASE)
+            if m:
+                ton_total += float(m.group(1))
+        ton_total = round(ton_total, 4)
+
+        TON_RATE = 3.20
+        usd = round(ton_total * TON_RATE, 2)
+        eur = round(usd * 0.92, 2)
+        uah = round(usd * 41.5, 0)
+        rub = round(usd * 92.0, 0)
+        kzt = round(usd * 450.0, 0)
+        byn = round(usd * 3.25, 2)
+        uzs = round(usd * 12700, 0)
+        azn = round(usd * 1.7, 2)
+        amd = round(usd * 390, 0)
+        gel = round(usd * 2.7, 2)
+
+        balance_lines = (
+            f"💎 {ton_total} TON\n"
+            f"💵 ${usd}\n"
+            f"💶 €{eur}\n"
+            f"🇺🇦 {int(uah)} грн\n"
+            f"🇷🇺 {int(rub)} руб\n"
+            f"🇰🇿 {int(kzt)} тенге\n"
+            f"🇧🇾 {byn} бел.руб\n"
+            f"🇺🇿 {int(uzs)} сум\n"
+            f"🇦🇿 {azn} ман\n"
+            f"🇦🇲 {int(amd)} драм\n"
+            f"🇬🇪 {gel} лари"
+        )
 
         keyboard = [[InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})]]
 
-        await query.message.reply_text(
+        text = (
             f"👤 *Личный кабинет пользователя {username}*\n\n"
-            f"💰 Баланс: *{balance_str}*\n\n"
+            f"💰 *Баланс:*\n{balance_lines}\n\n"
             f"⚜️ Рейтинг: Не известен | 🤨\n\n"
-            f"🆔 Ваш TelegramID: `{user.id}`",
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            f"🆔 Ваш TelegramID: `{user.id}`"
         )
+
+        try:
+            photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+            if photos.total_count > 0:
+                file_id = photos.photos[0][0].file_id
+                await query.message.reply_photo(
+                    photo=file_id,
+                    caption=text,
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            else:
+                await query.message.reply_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+        except Exception:
+            await query.message.reply_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == "sell_nft":
         context.user_data['waiting_payout'] = True
