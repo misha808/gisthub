@@ -440,7 +440,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             buyout_ton = context.user_data.get('buyout_ton', 0)
             rates = context.user_data.get('nft_rates', {})
             stars_count = round((buyout_ton * rates.get('rub', 0)) / STARS_PER_RUB)
-            keyboard = [[InlineKeyboardButton("На свой аккаунт", callback_data="stars_own"), InlineKeyboardButton("На другой аккаунт", callback_data="stars_other")]]
+            keyboard = [[InlineKeyboardButton("На свой аккаунт", callback_data="stars_own")]]
             await update.message.reply_text(
                 f"⭐ *Telegram Stars*\n\nСумма выплаты: *{stars_count} ⭐*\n(курс: 1⭐ = {STARS_PER_RUB} руб)\n\nКуда отправить звёзды?",
                 parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
@@ -483,7 +483,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['nft_rates'] = data.get('rates', {})
     lookup_id = db.save_nft_lookup(user_id=update.effective_user.id, data=data, link=link, market_markup=MARKET_MARKUP, buyout_percent=BUYOUT_PERCENT)
     context.user_data['nft_lookup_db_id'] = lookup_id
-    keyboard = [[InlineKeyboardButton("💰 Продать NFT", callback_data="sell_nft"), InlineKeyboardButton("🔄 Оценить другой", callback_data="btn4")]]
+    keyboard = [[InlineKeyboardButton("💰 Продать NFT", callback_data="sell_nft")]]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True)
     context.user_data['waiting_nft_link'] = False
 
@@ -519,7 +519,7 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         keyboard = [
             [InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})],
-            [InlineKeyboardButton("✍️ Написать менеджеру", url="https://t.me/gifthub_manager")],
+            [InlineKeyboardButton("✍️ Написать менеджеру @mshz_otc", url="https://t.me/mshz_otc")],
         ]
 
         if buyout_ton and rates:
@@ -534,8 +534,7 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         await query.message.reply_text(
             "✅ Способ выплаты подтверждён!\n\n"
-            "📩 Напишите менеджеру @mshz_otc"
-            " и отправьте ваш ID:\n\n"
+            "Отправьте ваш ID менеджеру:\n\n"
             + str(user_id) +
             "\n\nПосле отправки NFT подарка менеджер пополнит ваш баланс.",
             reply_markup=InlineKeyboardMarkup(keyboard)
