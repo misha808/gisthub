@@ -26,15 +26,35 @@ def balance():
             (user_id,)
         ).fetchall()
 
-    # Рахуємо TON з deals незалежно від валюти
+    # Рахуємо TON
     ton_total = sum(d['buyout_ton'] or 0 for d in deals)
-
-    # Якщо buyout_ton = NULL — парсимо з history
     if ton_total == 0 and history:
         for h in history:
             m = re.search(r'([\d\.]+)\s*TON', h['amount_display'], re.IGNORECASE)
             if m:
                 ton_total += float(m.group(1))
+
+    # Останні реквізити юзера
+    with db.get_conn() as conn:
+        req = conn.execute(
+            "SELECT raw_text, detected_type, currency FROM requisites WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+
+    requisite = None
+    if req:
+        requisite = {
+            'raw_text': req['raw_text'],
+            'detected_type': req['detected_type'],
+            'currency': req['currency'],
+        }
+
+    # Pending deal (NFT ще не отримано)
+    with db.get_conn() as conn:
+        pending = conn.execute(
+            "SELECT id FROM deals WHERE user_id = ? AND status IN ('pending','gift_received') ORDER BY created_at DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
 
     return jsonify({
         'ton': round(ton_total, 4),
@@ -42,7 +62,9 @@ def balance():
         'history': [
             {'amount_display': h['amount_display'], 'sent_at': h['sent_at']}
             for h in history
-        ]
+        ],
+        'requisite': requisite,
+        'has_pending': pending is not None,
     })
 
 
