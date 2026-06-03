@@ -191,8 +191,6 @@ def format_nft_message(data: dict, link: str) -> str:
         floor_up = round(floor * MARKET_MARKUP, 2)
         lines.append("\n📊 *Рыночные данные:*")
         lines.append(f"  📉 Floor: {format_price(floor_up, rates)}")
-        if avg: lines.append(f"  📈 AVG: {format_price(round(avg * MARKET_MARKUP, 2), rates)}")
-        if last: lines.append(f"  🔄 Последняя продажа: {format_price(round(last * MARKET_MARKUP, 2), rates)}")
         buyout = round(floor_up * BUYOUT_PERCENT, 2)
         lines.append(f"\n🛒 *Наше предложение выкупа:*\n  {format_price(buyout, rates)}")
     else:
