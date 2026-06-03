@@ -353,25 +353,11 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amd = round(usd * 390, 0)
         gel = round(usd * 2.7, 2)
 
-        balance_lines = (
-            f"💎 {ton_total} TON\n"
-            f"💵 ${usd}\n"
-            f"💶 €{eur}\n"
-            f"🇺🇦 {int(uah)} грн\n"
-            f"🇷🇺 {int(rub)} руб\n"
-            f"🇰🇿 {int(kzt)} тенге\n"
-            f"🇧🇾 {byn} бел.руб\n"
-            f"🇺🇿 {int(uzs)} сум\n"
-            f"🇦🇿 {azn} ман\n"
-            f"🇦🇲 {int(amd)} драм\n"
-            f"🇬🇪 {gel} лари"
-        )
-
         keyboard = [[InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})]]
 
         text = (
             f"👤 *Личный кабинет пользователя {username}*\n\n"
-            f"💰 *Баланс:*\n{balance_lines}\n\n"
+            f"💰 *Баланс:* {ton_total} TON\n\n"
             f"⚜️ Рейтинг: Не известен | 🤨\n\n"
             f"🆔 Ваш TelegramID: `{user.id}`"
         )
