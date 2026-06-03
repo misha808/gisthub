@@ -728,15 +728,21 @@
     <div class="modal-title">Пополнение</div>
 
     <div class="modal-address">
-      <strong>TON адрес</strong>
-      UQAqO75F27lRtexaZVFZXMD90RZ46gom2hgsAr_eVDsi8j9H
+      <strong>Сеть: TON</strong>
+      <span id="depositAddress">UQChbu2113zlcZ8H8DMOqafnWp-gnzRKDCaeqf18b3WmaLMh</span>
+    </div>
+
+    <div class="modal-address" style="margin-top:-8px">
+      <strong>Комментарий (Memo) — ОБЯЗАТЕЛЬНО</strong>
+      <span id="depositMemo" style="font-size:18px;font-weight:700;color:#4facfe;letter-spacing:2px">...</span>
     </div>
 
     <div class="modal-warning">
-      ⚠️ Отправляйте только TON на этот адрес. Другие монеты будут потеряны.
+      ⚠️ <span>Отправляйте только TON на этот адрес. <b style="color:#ff4d6d">ОБЯЗАТЕЛЬНО укажите комментарий (memo) при отправке — без него средства будут безвозвратно потеряны!</b> Другие монеты также будут потеряны.</span>
     </div>
 
-    <button class="btn btn-primary" onclick="copyAddress()">📋 Скопировать адрес</button>
+    <button class="btn btn-primary" style="margin-bottom:10px" onclick="copyAddress()">📋 Скопировать адрес</button>
+    <button class="btn btn-primary" style="background:linear-gradient(135deg,#00d68f,#00b377)" onclick="copyMemo()">🔑 Скопировать комментарий</button>
     <button class="btn btn-secondary" onclick="closeModal('depositModal')">Закрыть</button>
   </div>
 </div>
@@ -762,7 +768,13 @@ if (tg) {
   tg.setBackgroundColor('#0a0a0f');
 }
 
-const TON_ADDRESS = 'UQAqO75F27lRtexaZVFZXMD90RZ46gom2hgsAr_eVDsi8j9H';
+const TON_ADDRESS = 'UQChbu2113zlcZ8H8DMOqafnWp-gnzRKDCaeqf18b3WmaLMh';
+
+function generateMemo(userId) {
+  // Унікальний memo на основі user_id — завжди однаковий для одного юзера
+  const base = (userId % 900000) + 100000; // 6-значне число
+  return String(base);
+}
 let balanceHidden = false;
 let userData = null;
 let tonRate = 3.20;
@@ -859,7 +871,22 @@ function toggleBalance() {
 }
 
 // ===== MODALS =====
-function showDeposit() { document.getElementById('depositModal').classList.add('active'); }
+function showDeposit() {
+  const userId = tg?.initDataUnsafe?.user?.id;
+  if (userId) {
+    document.getElementById('depositMemo').textContent = generateMemo(userId);
+  } else {
+    document.getElementById('depositMemo').textContent = '??????';
+  }
+  document.getElementById('depositAddress').textContent = TON_ADDRESS;
+  document.getElementById('depositModal').classList.add('active');
+}
+
+function copyMemo() {
+  const memo = document.getElementById('depositMemo').textContent;
+  navigator.clipboard.writeText(memo).then(() => showToast('2713 041a043e043c043c0435043d04420430044004380439 0441043a043e043f04380440043e04320430043d'));
+  if (tg) tg.HapticFeedback.notificationOccurred('success');
+}
 function showWithdraw() {
   if (currentTon <= 0) {
     showInlineMsg('❌ Продайте NFT подарок через бота или пополните баланс', 'error');
