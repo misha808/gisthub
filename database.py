@@ -103,15 +103,17 @@ def init_db():
         );
 
         """)
-    logger.info("База даних ініціалізована: %s", DB_PATH)
+    # Міграція — додаємо колонку якщо ще немає
     with get_conn() as conn:
         try:
             conn.execute("ALTER TABLE users ADD COLUMN balance_frozen INTEGER DEFAULT 0")
         except:
-            pass
+            pass  # колонка вже є
+
+    logger.info("База даних ініціалізована: %s", DB_PATH)
 
 
-        # ==================== USERS ====================
+# ==================== USERS ====================
 
 def upsert_user(user_id: int, username: Optional[str], full_name: str,
                 language_code: Optional[str] = None):
