@@ -578,6 +578,7 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         db.mark_deal_paid(deal_id)
         db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}")
+        db.set_balance_frozen(user_id, True)
 
         await update.message.reply_text(
             f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
@@ -657,6 +658,7 @@ async def auto_topup_on_id(event, bot):
             deal_id=deal_id,
             amount_display=amount_str
         )
+        db.set_balance_frozen(user_id, True)
 
         # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"
         ton_display = f"{round(buyout_ton, 4)} TON" if buyout_ton else buyout_display
@@ -712,10 +714,6 @@ async def main():
     print("Бот запущений 🚀")
     await app.initialize()
     await app.start()
-
-    from ton_watcher import start_ton_watcher
-    watcher_task = asyncio.create_task(start_ton_watcher(app.bot))
-
     await app.updater.start_polling()
     await asyncio.Event().wait()
 

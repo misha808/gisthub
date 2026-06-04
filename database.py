@@ -39,7 +39,8 @@ def init_db():
             language_code   TEXT,                  -- мова клієнта Telegram
             first_seen      TEXT NOT NULL,         -- дата першого /start
             last_active     TEXT NOT NULL,         -- остання активність
-            is_banned       INTEGER DEFAULT 0      -- 0=активний, 1=заблокований
+            is_banned       INTEGER DEFAULT 0,     -- 0=активний, 1=заблокований
+            balance_frozen  INTEGER DEFAULT 0      -- 0=вільний, 1=заморожено
         );
 
         -- ================================================================
@@ -288,6 +289,25 @@ def get_stats() -> dict:
 
 
 # ==================== УТИЛІТИ ====================
+
+
+def set_balance_frozen(user_id: int, frozen: bool):
+    """Заморожує або розморожує баланс юзера."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE users SET balance_frozen = ? WHERE user_id = ?",
+            (1 if frozen else 0, user_id)
+        )
+
+
+def is_balance_frozen(user_id: int) -> bool:
+    """Повертає True якщо баланс юзера заморожено."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT balance_frozen FROM users WHERE user_id = ?",
+            (user_id,)
+        ).fetchone()
+    return bool(row and row["balance_frozen"])
 
 def _now() -> str:
     """Поточний UTC-час у форматі ISO 8601."""
