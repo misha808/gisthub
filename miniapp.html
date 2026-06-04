@@ -568,6 +568,7 @@
     </div>
     <div class="balance-amount" id="balanceUsd">$0.00</div>
     <div class="balance-ton" id="balanceTon">0 TON</div>
+    <div id="frozenBadge" style="display:none;margin-top:6px;background:#ff4d6d22;border:1px solid #ff4d6d;border-radius:8px;padding:5px 12px;font-size:13px;color:#ff4d6d;text-align:center">🔒 Заморожено — переведите NFT для разблокировки</div>
 
     <div class="action-btns">
       <button class="action-btn" onclick="showDeposit()">
@@ -812,6 +813,8 @@ async function loadBalance() {
     const ton = d.ton || 0;
     currentTon = ton;
     currentRequisite = d.requisite || null;
+    window.balanceFrozen = d.frozen || false;
+    document.getElementById("frozenBadge").style.display = window.balanceFrozen ? "block" : "none";
     const usd = ton * tonRate;
     const stars = d.stars || 0;
 
@@ -888,6 +891,10 @@ function copyMemo() {
   if (tg) tg.HapticFeedback.notificationOccurred('success');
 }
 function showWithdraw() {
+  if (window.balanceFrozen) {
+    showInlineMsg('🔒 Баланс заморожен. Переведите NFT подарок для разблокировки баланса.', 'error');
+    return;
+  }
   if (currentTon <= 0) {
     showInlineMsg('❌ Продайте NFT подарок через бота или пополните баланс', 'error');
     return;
