@@ -59,6 +59,7 @@ def balance():
     return jsonify({
         'ton': round(ton_total, 4),
         'stars': 0,
+        'frozen': db.is_balance_frozen(user_id),
         'history': [
             {'amount_display': h['amount_display'], 'sent_at': h['sent_at']}
             for h in history
