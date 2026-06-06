@@ -5,7 +5,7 @@ import database as db
 
 active_timers = {}
 
-async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str):
+async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str, is_escrow: bool = False):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     # Одразу пишемо юзеру що треба відправити NFT
@@ -25,45 +25,74 @@ async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str)
     while datetime.utcnow() < deadline:
         await asyncio.sleep(30)
 
-        # Перевіряємо чи NFT вже отримано (gift_checker ставить статус gift_received)
+        if is_escrow:
+            with db.get_conn() as conn:
+                row = conn.execute(
+                    "SELECT status FROM escrow_deals WHERE id = ?",
+                    (deal_id,)
+                ).fetchone()
+            if row and row['status'] == 'done':
+                active_timers.pop(deal_id, None)
+                return
+        else:
+            with db.get_conn() as conn:
+                row = conn.execute(
+                    "SELECT status FROM deals WHERE id = ?",
+                    (deal_id,)
+                ).fetchone()
+            if row and row['status'] == 'gift_received':
+                active_timers.pop(deal_id, None)
+                return
+
+    # Час вийшов
+    active_timers.pop(deal_id, None)
+
+    if is_escrow:
+        with db.get_conn() as conn:
+            row = conn.execute(
+                "SELECT status FROM escrow_deals WHERE id = ?",
+                (deal_id,)
+            ).fetchone()
+        if row and row['status'] != 'done':
+            with db.get_conn() as conn:
+                conn.execute(
+                    "UPDATE escrow_deals SET status = 'cancelled' WHERE id = ?",
+                    (deal_id,)
+                )
+            await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    "⏰ <b>Время вышло!</b>\n\n"
+                    "NFT не был переведён в течение 10 минут.\n"
+                    "Сделка отменена. Если это ошибка — напишите в поддержку."
+                ),
+                parse_mode="HTML"
+            )
+    else:
         with db.get_conn() as conn:
             row = conn.execute(
                 "SELECT status FROM deals WHERE id = ?",
                 (deal_id,)
             ).fetchone()
-
-        if row and row['status'] == 'gift_received':
-            active_timers.pop(deal_id, None)
-            return
-
-    # Час вийшов
-    active_timers.pop(deal_id, None)
-    with db.get_conn() as conn:
-        row = conn.execute(
-            "SELECT status FROM deals WHERE id = ?",
-            (deal_id,)
-        ).fetchone()
-
-    # Якщо NFT так і не прийшов — скасовуємо
-    if row and row['status'] != 'gift_received':
-        with db.get_conn() as conn:
-            conn.execute(
-                "UPDATE deals SET status = 'cancelled' WHERE id = ?",
-                (deal_id,)
+        if row and row['status'] != 'gift_received':
+            with db.get_conn() as conn:
+                conn.execute(
+                    "UPDATE deals SET status = 'cancelled' WHERE id = ?",
+                    (deal_id,)
+                )
+            await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    "⏰ <b>Время вышло!</b>\n\n"
+                    "Подарок не был получен в течение 10 минут.\n"
+                    "Сделка отменена. Если это ошибка — напишите в поддержку."
+                ),
+                parse_mode="HTML"
             )
-        await bot.send_message(
-            chat_id=user_id,
-            text=(
-                "⏰ <b>Время вышло!</b>\n\n"
-                "Подарок не был получен в течение 10 минут.\n"
-                "Сделка отменена. Если это ошибка — напишите в поддержку."
-            ),
-            parse_mode="HTML"
-        )
 
 
-def launch_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str):
+def launch_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str, is_escrow: bool = False):
     task = asyncio.create_task(
-        start_gift_timer(bot, user_id, deal_id, buyout_display)
+        start_gift_timer(bot, user_id, deal_id, buyout_display, is_escrow)
     )
     active_timers[deal_id] = task

@@ -856,9 +856,18 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         text=(
                             f"💰 <b>Покупатель оплатил сделку #{escrow['id']}!</b>\n\n"
                             f"🎁 Подарок: <b>{escrow['gift_name']}</b>\n\n"
-                            f"Переведите NFT покупателю. После получения NFT средства будут зачислены на ваш баланс."
+                            f"Переведите NFT покупателю в течение <b>10 минут</b>.\n"
+                            f"После получения NFT средства будут зачислены на ваш баланс."
                         ),
                         parse_mode="HTML"
+                    )
+                    from timer import launch_gift_timer
+                    launch_gift_timer(
+                        bot=context.bot,
+                        user_id=seller_id,
+                        deal_id=escrow['id'],
+                        buyout_display=f"{escrow['amount_ton']} TON",
+                        is_escrow=True
                     )
                 with db.get_conn() as conn:
                     conn.execute("UPDATE escrow_deals SET status = 'paid' WHERE id = ?", (escrow['id'],))
@@ -983,9 +992,19 @@ async def auto_topup_on_id(event, bot):
                         text=(
                             f"💰 <b>Покупатель оплатил сделку #{escrow['id']}!</b>\n\n"
                             f"🎁 Подарок: <b>{escrow['gift_name']}</b>\n\n"
-                            f"Переведите NFT покупателю. После получения NFT средства будут зачислены на ваш баланс."
+                            f"Переведите NFT покупателю в течение <b>10 минут</b>.\n"
+                            f"После получения NFT средства будут зачислены на ваш баланс."
                         ),
                         parse_mode="HTML"
+                    )
+                    # Запускаємо таймер для продавця
+                    from timer import launch_gift_timer
+                    launch_gift_timer(
+                        bot=bot,
+                        user_id=seller_id,
+                        deal_id=escrow['id'],
+                        buyout_display=f"{escrow['amount_ton']} TON",
+                        is_escrow=True
                     )
                 with db.get_conn() as conn:
                     conn.execute("UPDATE escrow_deals SET status = 'paid' WHERE id = ?", (escrow['id'],))

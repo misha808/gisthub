@@ -51,8 +51,6 @@ def set_telethon_client(client):
                         "UPDATE deals SET status = 'gift_received' WHERE id = ?",
                         (deal['id'],)
                     )
-                # Знімаємо заморозку балансу — NFT отримано
-                db.set_balance_frozen(sender_id, False)
                 print(f"[gift_checker] NFT отримано, угода #{deal['id']} gift_received!")
 
                 if _bot:
@@ -87,6 +85,70 @@ def set_telethon_client(client):
                              f"✅ Угода #{deal['id']} закрита.",
                         parse_mode="HTML"
                     )
+
+            # ===== ESCROW — перевіряємо чи це NFT для escrow сделки =====
+            if _bot:
+                from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                with db.get_conn() as conn:
+                    escrow = conn.execute(
+                        """SELECT * FROM escrow_deals
+                           WHERE status = 'paid'
+                           AND (creator_id = ? OR joiner_id = ?)
+                           ORDER BY id DESC LIMIT 1""",
+                        (sender_id, sender_id)
+                    ).fetchone()
+
+                if escrow:
+                    seller_id = escrow['creator_id'] if escrow['role'] == 'seller' else escrow['joiner_id']
+                    buyer_id = escrow['joiner_id'] if escrow['role'] == 'seller' else escrow['creator_id']
+
+                    with db.get_conn() as conn:
+                        conn.execute("UPDATE escrow_deals SET status = 'done' WHERE id = ?", (escrow['id'],))
+
+                    # Знімаємо заморозку продавця
+                    db.set_balance_frozen(seller_id, False)
+
+                    review_kb = InlineKeyboardMarkup([[
+                        InlineKeyboardButton("⭐ Оставить отзыв", url="https://t.me/+tqkAlrl7H55iZjYy")
+                    ]])
+                    await _bot.send_message(
+                        chat_id=seller_id,
+                        text=(
+                            f"✅ <b>Сделка #{escrow['id']} успешно завершена!</b>\n\n"
+                            f"🎁 NFT <b>{gift_title}</b> получен.\n\n"
+                            f"💰 Средства <b>{escrow['amount_ton']} TON</b> будут зачислены "
+                            f"на ваш способ оплаты в течение 1–3 рабочих дней.\n\n"
+                            f"Спасибо за сделку! Оставьте отзыв 👇"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=review_kb
+                    )
+
+                    if buyer_id:
+                        await _bot.send_message(
+                            chat_id=buyer_id,
+                            text=(
+                                f"✅ <b>Сделка #{escrow['id']} завершена!</b>\n\n"
+                                f"🎁 NFT <b>{gift_title}</b> переведён вам.\n\n"
+                                f"Спасибо за сделку!"
+                            ),
+                            parse_mode="HTML"
+                        )
+
+                    gift_link = f"https://t.me/nft/{gift_slug}" if gift_slug else "—"
+                    await _bot.send_message(
+                        chat_id=ADMIN_ID,
+                        text=(
+                            f"🔒 <b>Escrow сделка #{escrow['id']} закрита!</b>\n\n"
+                            f"🎁 NFT: <b>{gift_title}</b>\n"
+                            f"💰 Сумма: <b>{escrow['amount_ton']} TON</b>\n"
+                            f"👤 Продавець: <code>{seller_id}</code>\n"
+                            f"👤 Покупець: <code>{buyer_id}</code>\n"
+                            f"🔗 {gift_link}"
+                        ),
+                        parse_mode="HTML"
+                    )
+                    print(f"[gift_checker] Escrow #{escrow['id']} завершено!")
 
         except Exception as e:
             print(f"[gift_handler] Помилка: {e}")
