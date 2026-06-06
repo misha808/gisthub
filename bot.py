@@ -824,6 +824,47 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             await update.message.reply_text(f"⚠️ Не вдалось повідомити юзера: {e}")
+
+        # Перевіряємо escrow сделку де цей юзер — покупець
+        try:
+            with db.get_conn() as conn:
+                escrow = conn.execute(
+                    """SELECT * FROM escrow_deals
+                       WHERE status = 'active'
+                       AND (
+                         (creator_id = ? AND role = 'buyer')
+                         OR (joiner_id = ? AND role = 'seller')
+                       )
+                       ORDER BY id DESC LIMIT 1""",
+                    (user_id, user_id)
+                ).fetchone()
+
+            if escrow:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=(
+                        f"✅ <b>Оплата получена!</b>\n\n"
+                        f"💰 <b>+{display}</b> зачислено.\n\n"
+                        f"Ожидайте перевода NFT от продавца 🎁"
+                    ),
+                    parse_mode="HTML"
+                )
+                seller_id = escrow['joiner_id'] if escrow['role'] == 'buyer' else escrow['creator_id']
+                if seller_id:
+                    await context.bot.send_message(
+                        chat_id=seller_id,
+                        text=(
+                            f"💰 <b>Покупатель оплатил сделку #{escrow['id']}!</b>\n\n"
+                            f"🎁 Подарок: <b>{escrow['gift_name']}</b>\n\n"
+                            f"Переведите NFT покупателю. После получения NFT средства будут зачислены на ваш баланс."
+                        ),
+                        parse_mode="HTML"
+                    )
+                with db.get_conn() as conn:
+                    conn.execute("UPDATE escrow_deals SET status = 'paid' WHERE id = ?", (escrow['id'],))
+        except Exception as e:
+            print(f"[admin_topup] Помилка escrow notify: {e}")
+
     except Exception as e:
         await update.message.reply_text(f"❌ Помилка: {e}")
 
