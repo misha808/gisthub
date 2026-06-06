@@ -293,18 +293,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 deal = conn.execute(
                     "SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)
                 ).fetchone()
-            if deal:
-                other_role = "продавец" if deal['role'] == 'buyer' else "покупатель"
+            if deal and deal['status'] == 'waiting':
+                # Не дозволяємо creator приєднатись до своєї ж сделки
+                if deal['creator_id'] == user.id:
+                    await update.message.reply_text("❌ Нельзя присоединиться к своей же сделке.")
+                    return
+
+                creator_user = db.get_user(deal['creator_id'])
+                creator_nick = f"@{creator_user['username']}" if creator_user and creator_user['username'] else f"#{deal['creator_id']}"
+                joiner_nick = f"@{user.username}" if user.username else f"#{user.id}"
+
                 creator_role = "покупатель" if deal['role'] == 'buyer' else "продавец"
+                joiner_role = "продавец" if deal['role'] == 'buyer' else "покупатель"
+
+                keyboard = [[InlineKeyboardButton("✅ Подтвердить участие", callback_data=f"escrow_join_{deal_id}")]]
                 await update.message.reply_text(
                     f"🔒 *Безопасная сделка #{deal_id}*\n\n"
                     f"🎁 Подарок: *{deal['gift_name']}*\n"
                     f"💰 Сумма: *{deal['amount_ton']} TON*\n"
-                    f"👤 Инициатор: *{creator_role}*\n"
-                    f"👤 Вы: *{other_role}*\n\n"
-                    f"Менеджер свяжется с вами для продолжения сделки 🤝",
-                    parse_mode="Markdown"
+                    f"👤 {creator_role}: *{creator_nick}*\n"
+                    f"👤 {joiner_role}: *{joiner_nick}*\n\n"
+                    f"Нажмите кнопку ниже для подтверждения участия 👇",
+                    parse_mode="Markdown",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
+                return
+            elif deal and deal['status'] != 'waiting':
+                await update.message.reply_text("❌ Эта сделка уже не активна.")
                 return
         except Exception as e:
             print(f"[escrow] Помилка: {e}")
@@ -351,6 +366,90 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Формат: `123.4`",
             parse_mode="Markdown"
         )
+
+    elif query.data.startswith("escrow_join_"):
+        deal_id = int(query.data.split("_")[2])
+        user = query.from_user
+        with db.get_conn() as conn:
+            deal = conn.execute("SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)).fetchone()
+        if not deal or deal['status'] != 'waiting':
+            await query.answer("Сделка уже не активна", show_alert=True)
+            return
+
+        # Зберігаємо joiner_id
+        with db.get_conn() as conn:
+            conn.execute("UPDATE escrow_deals SET joiner_id = ?, status = 'active' WHERE id = ?", (user.id, deal_id))
+
+        context.user_data['escrow_join_deal_id'] = deal_id
+        context.user_data['escrow_join_step'] = 'requisite'
+
+        TON_WALLET = "UQChbu2113zlcZ8H8DMOqafnWp-gnzRKDCaeqf18b3WmaLMh"
+
+        # Якщо joiner — покупець (creator був продавець), просимо реквізити для виплати
+        # Якщо joiner — продавець (creator був покупець), просимо реквізити для виплати продавцю
+        joiner_is_buyer = deal['role'] == 'seller'  # creator продавець → joiner покупець
+
+        if joiner_is_buyer:
+            # Joiner платить — показуємо гаманець для оплати
+            await query.message.reply_text(
+                f"✅ *Вы подтвердили участие в сделке #{deal_id}!*\n\n"
+                f"💰 Переведите *{deal['amount_ton']} TON* на кошелёк:\n"
+                f"`{TON_WALLET}`\n\n"
+                f"⚠️ В комментарии к переводу укажите ваш уникальный код (смотри в разделе Пополнить в кошельке).\n\n"
+                f"После оплаты продавец переведёт вам NFT 🎁",
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})]])
+            )
+            # Повідомляємо creator (продавця)
+            creator_user = db.get_user(deal['creator_id'])
+            joiner_nick = f"@{user.username}" if user.username else f"#{user.id}"
+            try:
+                await query.get_bot().send_message(
+                    chat_id=deal['creator_id'],
+                    text=(
+                        f"🔔 *Покупатель {joiner_nick} подтвердил сделку #{deal_id}!*\n\n"
+                        f"🎁 Подарок: *{deal['gift_name']}*\n"
+                        f"💰 Сумма: *{deal['amount_ton']} TON*\n\n"
+                        f"Ожидайте оплаты. После поступления средств вам придёт уведомление о переводе NFT."
+                    ),
+                    parse_mode="Markdown"
+                )
+            except: pass
+        else:
+            # Joiner — продавець, просимо реквізити
+            await query.message.reply_text(
+                f"✅ *Вы подтвердили участие в сделке #{deal_id}!*\n\n"
+                f"Укажите способ получения оплаты за NFT 👇\n\n"
+                f"💳 *Укажите реквизиты для получения оплаты*\n\n"
+                f"🏦 Банковские карты:\n"
+                f"  🇺🇦 Monobank, ПриватБанк, Ощадбанк, ПУМБ\n"
+                f"  🇷🇺 Т-Банк, Сбербанк, ВТБ, Альфа-Банк\n"
+                f"  🇧🇾 Беларусбанк, МТБанк\n"
+                f"  🇰🇿 Kaspi, Halyk Bank\n\n"
+                f"💎 Криптовалюта: TON, USDT (TRC-20 / ERC-20), BTC\n\n"
+                f"⭐ Telegram Stars: напишите «звезды»\n\n"
+                f"📝 Примеры:\n"
+                f"  Карта: `4441 1144 1234 5678`\n"
+                f"  Крипто: `UQB...` или `T...`\n"
+                f"  Телефон: `+380XXXXXXXXX`\n\n"
+                f"⬇️ Введите реквизиты:",
+                parse_mode="Markdown"
+            )
+            context.user_data['escrow_join_step'] = 'requisite'
+            # Повідомляємо creator (покупця)
+            joiner_nick = f"@{user.username}" if user.username else f"#{user.id}"
+            try:
+                await query.get_bot().send_message(
+                    chat_id=deal['creator_id'],
+                    text=(
+                        f"🔔 *Продавец {joiner_nick} подтвердил сделку #{deal_id}!*\n\n"
+                        f"🎁 Подарок: *{deal['gift_name']}*\n"
+                        f"💰 Сумма: *{deal['amount_ton']} TON*\n\n"
+                        f"Ожидайте подтверждения реквизитов от продавца."
+                    ),
+                    parse_mode="Markdown"
+                )
+            except: pass
 
     elif query.data == "btn4":
         context.user_data['waiting_nft_link'] = True
@@ -525,6 +624,47 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"`{link}`",
             parse_mode="Markdown"
         )
+        return
+
+    # Escrow join — реквізити продавця
+    if context.user_data.get('escrow_join_step') == 'requisite':
+        deal_id = context.user_data.get('escrow_join_deal_id')
+        with db.get_conn() as conn:
+            deal = conn.execute("SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)).fetchone()
+        if not deal:
+            return
+
+        context.user_data['escrow_join_step'] = None
+        TON_WALLET = "UQChbu2113zlcZ8H8DMOqafnWp-gnzRKDCaeqf18b3WmaLMh"
+        joiner_nick = f"@{update.effective_user.username}" if update.effective_user.username else f"#{update.effective_user.id}"
+
+        # Зберігаємо реквізити продавця
+        with db.get_conn() as conn:
+            conn.execute("UPDATE escrow_deals SET seller_requisite = ? WHERE id = ?", (text, deal_id))
+
+        await update.message.reply_text(
+            f"✅ Реквизиты приняты!\n\n"
+            f"Ожидайте оплаты от покупателя. После получения средств переведите NFT *{deal['gift_name']}* покупателю.",
+            parse_mode="Markdown"
+        )
+
+        # Повідомляємо покупця (creator) що треба платити
+        try:
+            await update.get_bot().send_message(
+                chat_id=deal['creator_id'],
+                text=(
+                    f"✅ *Продавец указал реквизиты. Сделка #{deal_id} готова к оплате!*\n\n"
+                    f"🎁 Подарок: *{deal['gift_name']}*\n"
+                    f"💰 Переведите *{deal['amount_ton']} TON* на кошелёк:\n"
+                    f"`{TON_WALLET}`\n\n"
+                    f"⚠️ В комментарии укажите ваш уникальный код (раздел Пополнить в кошельке).\n\n"
+                    f"После оплаты продавец переведёт вам NFT 🎁"
+                ),
+                parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💼 Открыть кошелёк", web_app={"url": MINI_APP_URL})]])
+            )
+        except Exception as e:
+            print(f"[escrow] Не вдалось повідомити покупця: {e}")
         return
 
     if context.user_data.get('waiting_payout'):

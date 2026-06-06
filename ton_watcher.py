@@ -169,6 +169,49 @@ async def process_transactions(txs: list, bot) -> int:
             except Exception as e:
                 print(f"[ton_watcher] Не вдалось повідомити юзера {user_id}: {e}")
 
+            # Перевіряємо чи є активна escrow сделка де цей юзер — покупець
+            try:
+                with db.get_conn() as conn:
+                    escrow = conn.execute(
+                        """SELECT * FROM escrow_deals
+                           WHERE status = 'active'
+                           AND (
+                             (creator_id = ? AND role = 'buyer')
+                             OR (joiner_id = ? AND role = 'seller')
+                           )
+                           ORDER BY id DESC LIMIT 1""",
+                        (user_id, user_id)
+                    ).fetchone()
+
+                if escrow:
+                    # Повідомляємо покупця
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=(
+                            f"✅ <b>Оплата получена!</b>\n\n"
+                            f"💰 <b>{amount_ton} TON</b> зачислено.\n\n"
+                            f"Ожидайте перевода NFT от продавца 🎁"
+                        ),
+                        parse_mode="HTML"
+                    )
+                    # Знаходимо продавця
+                    seller_id = escrow['joiner_id'] if escrow['role'] == 'buyer' else escrow['creator_id']
+                    if seller_id:
+                        await bot.send_message(
+                            chat_id=seller_id,
+                            text=(
+                                f"💰 <b>Покупатель оплатил сделку #{escrow['id']}!</b>\n\n"
+                                f"🎁 Подарок: <b>{escrow['gift_name']}</b>\n\n"
+                                f"Переведите NFT покупателю. После получения NFT средства будут зачислены на ваш баланс."
+                            ),
+                            parse_mode="HTML"
+                        )
+                    # Оновлюємо статус сделки
+                    with db.get_conn() as conn:
+                        conn.execute("UPDATE escrow_deals SET status = 'paid' WHERE id = ?", (escrow['id'],))
+            except Exception as e:
+                print(f"[ton_watcher] Помилка escrow notify: {e}")
+
             count += 1
 
         except Exception as e:

@@ -107,15 +107,25 @@ def init_db():
     with get_conn() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS escrow_deals (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                creator_id  INTEGER NOT NULL,
-                role        TEXT NOT NULL,       -- 'buyer' або 'seller'
-                amount_ton  REAL NOT NULL,
-                gift_name   TEXT NOT NULL,
-                status      TEXT DEFAULT 'waiting',  -- waiting/active/done/cancelled
-                created_at  TEXT NOT NULL
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                creator_id        INTEGER NOT NULL,
+                joiner_id         INTEGER,
+                role              TEXT NOT NULL,       -- 'buyer' або 'seller' (роль creator)
+                amount_ton        REAL NOT NULL,
+                gift_name         TEXT NOT NULL,
+                seller_requisite  TEXT,
+                status            TEXT DEFAULT 'waiting',  -- waiting/active/paid/done/cancelled
+                created_at        TEXT NOT NULL
             )
         """)
+        # Міграції існуючої таблиці
+        for col, definition in [
+            ("joiner_id", "INTEGER"),
+            ("seller_requisite", "TEXT"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE escrow_deals ADD COLUMN {col} {definition}")
+            except: pass
 
     # Міграція — додаємо колонку якщо ще немає
     with get_conn() as conn:
