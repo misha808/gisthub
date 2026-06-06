@@ -489,9 +489,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['escrow_amount'] = amount
         context.user_data['escrow_step'] = 'name'
         await update.message.reply_text(
-            "🎁 Введите название подарка:
-
-Например: `1 Пепе`",
+            "🎁 Введите название подарка:\n\nНапример: `1 Пепе`",
             parse_mode="Markdown"
         )
         return
