@@ -283,6 +283,32 @@ def detect_payout(text: str) -> tuple[str, str]:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db.upsert_user(user_id=user.id, username=user.username, full_name=user.full_name, language_code=user.language_code)
+
+    # Перевіряємо чи є deep link escrow
+    args = context.args
+    if args and args[0].startswith('escrow_'):
+        try:
+            deal_id = int(args[0].split('_')[1])
+            with db.get_conn() as conn:
+                deal = conn.execute(
+                    "SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)
+                ).fetchone()
+            if deal:
+                other_role = "продавец" if deal['role'] == 'buyer' else "покупатель"
+                creator_role = "покупатель" if deal['role'] == 'buyer' else "продавец"
+                await update.message.reply_text(
+                    f"🔒 *Безопасная сделка #{deal_id}*\n\n"
+                    f"🎁 Подарок: *{deal['gift_name']}*\n"
+                    f"💰 Сумма: *{deal['amount_ton']} TON*\n"
+                    f"👤 Инициатор: *{creator_role}*\n"
+                    f"👤 Вы: *{other_role}*\n\n"
+                    f"Менеджер свяжется с вами для продолжения сделки 🤝",
+                    parse_mode="Markdown"
+                )
+                return
+        except Exception as e:
+            print(f"[escrow] Помилка: {e}")
+
     keyboard = [
         [InlineKeyboardButton("🔒 Безопасная сделка", callback_data="btn3")],
         [InlineKeyboardButton("🎁 Скуп NFT-подарков", callback_data="btn4")],
@@ -303,11 +329,26 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == "btn3":
+        keyboard = [
+            [InlineKeyboardButton("🛒 Купить", callback_data="escrow_buy"),
+             InlineKeyboardButton("💸 Продать", callback_data="escrow_sell")]
+        ]
         await query.message.reply_text(
             "🔒 *Безопасная сделка*\n\n"
             "Мы выступаем гарантом между покупателем и продавцом.\n"
             "Комиссия — 10%.\n\n"
-            "Напишите менеджеру для деталей 👇",
+            "Выберите вашу роль в сделке 👇",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    elif query.data in ("escrow_buy", "escrow_sell"):
+        role = "buyer" if query.data == "escrow_buy" else "seller"
+        context.user_data['escrow_role'] = role
+        context.user_data['escrow_step'] = 'amount'
+        await query.message.reply_text(
+            "💰 Введите сумму сделки в TON:\n\n"
+            "Формат: `123.4`",
             parse_mode="Markdown"
         )
 
@@ -433,6 +474,60 @@ async def _finalize_stars(query, context):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     db.touch_user(update.effective_user.id)
+
+    # ==================== ESCROW FLOW ====================
+    escrow_step = context.user_data.get('escrow_step')
+
+    if escrow_step == 'amount':
+        try:
+            amount = float(text.replace(',', '.'))
+            if amount <= 0:
+                raise ValueError
+        except:
+            await update.message.reply_text("❌ Неверный формат. Введите сумму в TON, например: `123.4`", parse_mode="Markdown")
+            return
+        context.user_data['escrow_amount'] = amount
+        context.user_data['escrow_step'] = 'name'
+        await update.message.reply_text(
+            "🎁 Введите название подарка:
+
+Например: `1 Пепе`",
+            parse_mode="Markdown"
+        )
+        return
+
+    if escrow_step == 'name':
+        context.user_data['escrow_name'] = text
+        context.user_data['escrow_step'] = None
+
+        role = context.user_data.get('escrow_role', 'buyer')
+        amount = context.user_data.get('escrow_amount', 0)
+        gift_name = text
+        user_id = update.effective_user.id
+
+        # Зберігаємо сделку в БД
+        with db.get_conn() as conn:
+            conn.execute(
+                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at)
+                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'))""",
+                (user_id, role, amount, gift_name)
+            )
+            deal_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+        role_text = "покупатель" if role == "buyer" else "продавец"
+        bot_username = (await update.get_bot().get_me()).username
+        link = f"https://t.me/{bot_username}?start=escrow_{deal_id}"
+
+        await update.message.reply_text(
+            f"✅ *Ваша сделка успешно создана!*\n\n"
+            f"👤 Роль: *{role_text}*\n"
+            f"💰 Сумма: *{amount} TON*\n"
+            f"🎁 Подарок: *{gift_name}*\n\n"
+            f"Отправьте эту ссылку второй стороне сделки 👇\n\n"
+            f"`{link}`",
+            parse_mode="Markdown"
+        )
+        return
 
     if context.user_data.get('waiting_payout'):
         if re.search(r'звезд|зірк|stars|⭐', text, re.IGNORECASE):
@@ -578,7 +673,6 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         db.mark_deal_paid(deal_id)
         db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}")
-        db.set_balance_frozen(user_id, True)
 
         await update.message.reply_text(
             f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
@@ -658,7 +752,6 @@ async def auto_topup_on_id(event, bot):
             deal_id=deal_id,
             amount_display=amount_str
         )
-        db.set_balance_frozen(user_id, True)
 
         # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"
         ton_display = f"{round(buyout_ton, 4)} TON" if buyout_ton else buyout_display

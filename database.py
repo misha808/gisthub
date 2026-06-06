@@ -103,6 +103,20 @@ def init_db():
         );
 
         """)
+    # Міграція — escrow_deals таблиця
+    with get_conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS escrow_deals (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                creator_id  INTEGER NOT NULL,
+                role        TEXT NOT NULL,       -- 'buyer' або 'seller'
+                amount_ton  REAL NOT NULL,
+                gift_name   TEXT NOT NULL,
+                status      TEXT DEFAULT 'waiting',  -- waiting/active/done/cancelled
+                created_at  TEXT NOT NULL
+            )
+        """)
+
     # Міграція — додаємо колонку якщо ще немає
     with get_conn() as conn:
         try:
