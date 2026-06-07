@@ -810,7 +810,8 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             currency=currency,
         )
         db.mark_deal_paid(deal_id)
-        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}")
+        admin_nick = f"@{update.effective_user.username}" if update.effective_user.username else f"#{update.effective_user.id}"
+        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}", label=f"Від {admin_nick}")
 
         await update.message.reply_text(
             f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
@@ -935,10 +936,17 @@ async def auto_topup_on_id(event, bot):
 
         db.mark_deal_paid(deal_id)
         amount_str = f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
+        # Зчитуємо актуальний username юзербота динамічно
+        try:
+            me = await bot.get_me()
+            userbot_nick = f"@{me.username}" if me.username else "юзербота"
+        except:
+            userbot_nick = "юзербота"
         db.log_balance_topup(
             user_id=user_id,
             deal_id=deal_id,
-            amount_display=amount_str
+            amount_display=amount_str,
+            label=f"Від {userbot_nick}"
         )
 
         # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"

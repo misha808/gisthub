@@ -127,12 +127,18 @@ def init_db():
                 conn.execute(f"ALTER TABLE escrow_deals ADD COLUMN {col} {definition}")
             except: pass
 
-    # Міграція — додаємо колонку якщо ще немає
+    # Міграція — додаємо колонки якщо ще немає
     with get_conn() as conn:
+        for col, definition in [
+            ("balance_frozen", "INTEGER DEFAULT 0"),
+            ("label", "TEXT DEFAULT 'Отримано за NFT'"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+            except: pass
         try:
-            conn.execute("ALTER TABLE users ADD COLUMN balance_frozen INTEGER DEFAULT 0")
-        except:
-            pass  # колонка вже є
+            conn.execute("ALTER TABLE balance_events ADD COLUMN label TEXT DEFAULT 'Отримано за NFT'")
+        except: pass
 
     logger.info("База даних ініціалізована: %s", DB_PATH)
 
@@ -286,13 +292,13 @@ def get_user_deals(user_id: int) -> list:
 # ==================== BALANCE EVENTS ====================
 
 def log_balance_topup(user_id: int, deal_id: Optional[int],
-                      amount_display: str):
+                      amount_display: str, label: str = "Отримано за NFT"):
     """Фіксує подію поповнення балансу."""
     with get_conn() as conn:
         conn.execute("""
-            INSERT INTO balance_events (user_id, deal_id, amount_display, sent_at)
-            VALUES (?, ?, ?, ?)
-        """, (user_id, deal_id, amount_display, _now()))
+            INSERT INTO balance_events (user_id, deal_id, amount_display, label, sent_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, deal_id, amount_display, label, _now()))
 
 
 # ==================== АНАЛІТИКА / АДМІН ====================

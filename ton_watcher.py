@@ -149,7 +149,7 @@ async def process_transactions(txs: list, bot) -> int:
                 currency="TON",
             )
             db.mark_deal_paid(deal_id)
-            db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=display)
+            db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=display, label="Пополнение")
             mark_processed(lt, user_id, amount_ton, memo)
 
             print(f"[ton_watcher] ✅ Зараховано {amount_ton} TON → юзер {user_id} (memo: {memo})")
