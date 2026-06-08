@@ -828,19 +828,24 @@ async function loadBalance() {
     // History
     if (d.history && d.history.length > 0) {
       const list = document.getElementById('historyList');
-      list.innerHTML = d.history.map(h => `
+      list.innerHTML = d.history.map(h => {
+        const label = h.label || 'Від @GiftHubUserBot';
+        const labelHtml = label.replace(/@(\w+)/g, (match, username) =>
+          `<a href="https://t.me/${username}" target="_blank" style="color:#4facfe;text-decoration:none">${match}</a>`
+        );
+        return `
         <div class="history-item">
           <div class="history-icon in">🎁</div>
           <div class="history-info">
-            <div class="history-title">Отримано за NFT</div>
+            <div class="history-title">${labelHtml}</div>
             <div class="history-date">${formatDate(h.sent_at)}</div>
           </div>
           <div>
             <div class="history-amount in">${h.amount_display.replace(/^\++/, "+")}</div>
             <div class="history-status">Отримано</div>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
   } catch(e) {
     console.log('API недоступен, показываю нули');

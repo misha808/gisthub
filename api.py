@@ -22,7 +22,7 @@ def balance():
         ).fetchall()
 
         history = conn.execute(
-            "SELECT amount_display, sent_at FROM balance_events WHERE user_id = ? ORDER BY sent_at DESC LIMIT 20",
+            "SELECT amount_display, sent_at, label FROM balance_events WHERE user_id = ? ORDER BY sent_at DESC LIMIT 20",
             (user_id,)
         ).fetchall()
 
@@ -61,7 +61,7 @@ def balance():
         'stars': 0,
         'frozen': db.is_balance_frozen(user_id),
         'history': [
-            {'amount_display': h['amount_display'], 'sent_at': h['sent_at']}
+            {'amount_display': h['amount_display'], 'sent_at': h['sent_at'], 'label': h['label'] if h['label'] else 'Від @GiftHubUserBot'}
             for h in history
         ],
         'requisite': requisite,
