@@ -1,7 +1,5 @@
 import re
 import os
-import random
-import string
 import asyncio
 import aiohttp
 from telethon import TelegramClient
@@ -290,14 +288,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Перевіряємо чи є deep link escrow
     args = context.args
-    if args and args[0].startswith('escrow'):
+    if args and args[0].startswith('escrow_'):
         try:
-            token = args[0]
+            deal_id = int(args[0].split('_')[1])
             with db.get_conn() as conn:
                 deal = conn.execute(
-                    "SELECT * FROM escrow_deals WHERE token = ?", (token,)
+                    "SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)
                 ).fetchone()
-            deal_id = deal['id'] if deal else None
             if deal and deal['status'] == 'waiting':
                 # Не дозволяємо creator приєднатись до своєї ж сделки
                 if deal['creator_id'] == user.id:
@@ -608,19 +605,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
 
         # Зберігаємо сделку в БД
-        token = 'escrow' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-        deal_number = random.randint(100000000, 999999999)
         with db.get_conn() as conn:
             conn.execute(
-                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at, token, deal_number)
-                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'), ?, ?)""",
-                (user_id, role, amount, gift_name, token, deal_number)
+                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at)
+                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'))""",
+                (user_id, role, amount, gift_name)
             )
             deal_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
         role_text = "покупатель" if role == "buyer" else "продавец"
         bot_username = (await update.get_bot().get_me()).username
-        link = f"https://t.me/{bot_username}?start={token}"
+        link = f"https://t.me/{bot_username}?start=escrow_{deal_id}"
 
         await update.message.reply_text(
             f"✅ *Ваша сделка успешно создана!*\n\n"
@@ -869,7 +864,6 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ),
                         parse_mode="HTML"
                     )
-                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=context.bot,
                         user_id=seller_id,
@@ -1013,7 +1007,6 @@ async def auto_topup_on_id(event, bot):
                         parse_mode="HTML"
                     )
                     # Запускаємо таймер для продавця
-                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=bot,
                         user_id=seller_id,
