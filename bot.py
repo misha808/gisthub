@@ -2,6 +2,7 @@ import re
 import asyncio
 import aiohttp
 from telethon import TelegramClient
+from telethon.sessions import StringSession
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
@@ -1027,7 +1028,8 @@ async def main():
     global telethon_client
     db.init_db()
     print("База даних ініціалізована ✅")
-    telethon_client = TelegramClient('auth.session', API_ID, API_HASH)
+    SESSION_STRING = os.environ.get('SESSION_STRING', '')
+    telethon_client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
     await telethon_client.start()
     print("Telethon підключено ✅")
     from gift_checker import set_telethon_client, set_bot
