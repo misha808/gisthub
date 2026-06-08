@@ -10,6 +10,7 @@ ADMIN_ID = 7562324979
 def set_telethon_client(client):
     global _telethon_client
     _telethon_client = client
+    print("[gift_checker] ✅ Слухає вхідні NFT")
 
     @client.on(events.Raw())
     async def gift_handler(update):
@@ -111,14 +112,13 @@ def set_telethon_client(client):
                     review_kb = InlineKeyboardMarkup([[
                         InlineKeyboardButton("⭐ Оставить отзыв", url="https://t.me/+tqkAlrl7H55iZjYy")
                     ]])
-                    deal_num = escrow['deal_number'] if escrow['deal_number'] else escrow['id']
                     await _bot.send_message(
                         chat_id=seller_id,
                         text=(
-                            f"✅ <b>Сделка завершена #{deal_num}</b>\n\n"
-                            f"🎁 <b>{escrow['gift_name']}</b>\n"
-                            f"💰 <b>{escrow['amount_ton']} TON</b>\n\n"
-                            f"Средства будут зачислены на ваш способ оплаты в течение 1–3 рабочих дней.\n\n"
+                            f"✅ <b>Сделка #{escrow['id']} успешно завершена!</b>\n\n"
+                            f"🎁 NFT <b>{gift_title}</b> получен.\n\n"
+                            f"💰 Средства <b>{escrow['amount_ton']} TON</b> будут зачислены "
+                            f"на ваш способ оплаты в течение 1–3 рабочих дней.\n\n"
                             f"Спасибо за сделку! Оставьте отзыв 👇"
                         ),
                         parse_mode="HTML",
@@ -129,10 +129,9 @@ def set_telethon_client(client):
                         await _bot.send_message(
                             chat_id=buyer_id,
                             text=(
-                                f"✅ <b>Сделка завершена #{deal_num}</b>\n\n"
-                                f"🎁 <b>{escrow['gift_name']}</b>\n"
-                                f"💰 <b>{escrow['amount_ton']} TON</b>\n\n"
-                                f"NFT переведён вам. Спасибо за сделку!"
+                                f"✅ <b>Сделка #{escrow['id']} завершена!</b>\n\n"
+                                f"🎁 NFT <b>{gift_title}</b> переведён вам.\n\n"
+                                f"Спасибо за сделку!"
                             ),
                             parse_mode="HTML"
                         )
@@ -141,7 +140,7 @@ def set_telethon_client(client):
                     await _bot.send_message(
                         chat_id=ADMIN_ID,
                         text=(
-                            f"🔒 <b>Escrow сделка завершена #{deal_num}</b>\n\n"
+                            f"🔒 <b>Escrow сделка #{escrow['id']} закрита!</b>\n\n"
                             f"🎁 NFT: <b>{gift_title}</b>\n"
                             f"💰 Сумма: <b>{escrow['amount_ton']} TON</b>\n"
                             f"👤 Продавець: <code>{seller_id}</code>\n"
