@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>HubGift Wallet</title>
+<title>GiftHub Wallet</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&display=swap');
@@ -553,7 +553,7 @@
 
 <!-- HEADER -->
 <div class="header">
-  <div class="header-logo">HubGift</div>
+  <div class="header-logo">GiftHub</div>
   <button class="header-btn" onclick="showPage('settings')">👤</button>
 </div>
 
@@ -829,8 +829,8 @@ async function loadBalance() {
     if (d.history && d.history.length > 0) {
       const list = document.getElementById('historyList');
       list.innerHTML = d.history.map(h => {
-        const label = h.label || 'Від @GiftHubUserBot';
-        const labelHtml = label.replace(/@(\w+)/g, (match, username) =>
+        const label = h.label || 'От @GiftHubUserBot';
+        const labelHtml = label.replace(/^Від /, 'От ').replace(/@(\w+)/g, (match, username) =>
           `<a href="https://t.me/${username}" target="_blank" style="color:#4facfe;text-decoration:none">${match}</a>`
         );
         return `
@@ -842,7 +842,7 @@ async function loadBalance() {
           </div>
           <div>
             <div class="history-amount in">${h.amount_display.replace(/^\++/, "+")}</div>
-            <div class="history-status">Отримано</div>
+            <div class="history-status">Получено</div>
           </div>
         </div>`;
       }).join('');
@@ -855,8 +855,13 @@ async function loadBalance() {
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'Z');
-  const local = new Date(d.getTime() + 3 * 60 * 60 * 1000);
-  return local.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const msk = new Date(d.getTime() + 3 * 60 * 60 * 1000);
+  const day = msk.getUTCDate();
+  const months = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const mon = months[msk.getUTCMonth()];
+  const hh = String(msk.getUTCHours()).padStart(2,'0');
+  const mm = String(msk.getUTCMinutes()).padStart(2,'0');
+  return `${day} ${mon}., ${hh}:${mm}`;
 }
 
 // ===== NAVIGATION =====
