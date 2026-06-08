@@ -1,5 +1,7 @@
 import re
 import os
+import random
+import string
 import asyncio
 import aiohttp
 from telethon import TelegramClient
@@ -288,13 +290,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Перевіряємо чи є deep link escrow
     args = context.args
-    if args and args[0].startswith('escrow_'):
+    if args and args[0].startswith('escrow'):
         try:
-            deal_id = int(args[0].split('_')[1])
+            token = args[0]
             with db.get_conn() as conn:
                 deal = conn.execute(
-                    "SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)
+                    "SELECT * FROM escrow_deals WHERE token = ?", (token,)
                 ).fetchone()
+            deal_id = deal['id'] if deal else None
             if deal and deal['status'] == 'waiting':
                 # Не дозволяємо creator приєднатись до своєї ж сделки
                 if deal['creator_id'] == user.id:
@@ -605,17 +608,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
 
         # Зберігаємо сделку в БД
+        token = 'escrow' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        deal_number = random.randint(100000000, 999999999)
         with db.get_conn() as conn:
             conn.execute(
-                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at)
-                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'))""",
-                (user_id, role, amount, gift_name)
+                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at, token, deal_number)
+                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'), ?, ?)""",
+                (user_id, role, amount, gift_name, token, deal_number)
             )
             deal_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
         role_text = "покупатель" if role == "buyer" else "продавец"
         bot_username = (await update.get_bot().get_me()).username
-        link = f"https://t.me/{bot_username}?start=escrow_{deal_id}"
+        link = f"https://t.me/{bot_username}?start={token}"
 
         await update.message.reply_text(
             f"✅ *Ваша сделка успешно создана!*\n\n"
@@ -813,7 +818,7 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         db.mark_deal_paid(deal_id)
         admin_nick = f"@{update.effective_user.username}" if update.effective_user.username else f"#{update.effective_user.id}"
-        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}", label=f"От {admin_nick}")
+        db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}", label=f"Від {admin_nick}")
 
         await update.message.reply_text(
             f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
@@ -948,7 +953,7 @@ async def auto_topup_on_id(event, bot):
             user_id=user_id,
             deal_id=deal_id,
             amount_display=amount_str,
-            label=f"От {userbot_nick}"
+            label=f"Від {userbot_nick}"
         )
 
         # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"

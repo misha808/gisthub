@@ -122,6 +122,8 @@ def init_db():
         for col, definition in [
             ("joiner_id", "INTEGER"),
             ("seller_requisite", "TEXT"),
+            ("token", "TEXT"),
+            ("deal_number", "INTEGER"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE escrow_deals ADD COLUMN {col} {definition}")
