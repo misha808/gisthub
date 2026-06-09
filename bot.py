@@ -310,9 +310,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 creator_role = "покупатель" if deal['role'] == 'buyer' else "продавец"
                 joiner_role = "продавец" if deal['role'] == 'buyer' else "покупатель"
 
-                keyboard = [[InlineKeyboardButton("✅ Подтвердить участие", callback_data=f"escrow_join_{deal_id}")]]
+                keyboard = [[InlineKeyboardButton("✅ Подтвердить участие", callback_data=f"escrow_join_{deal['id']}")]]
                 await update.message.reply_text(
-                    f"🔒 *Безопасная сделка #{deal_id}*\n\n"
+                    f"🔒 *Безопасная сделка #{deal['id']}*\n\n"
                     f"🎁 Подарок: *{deal['gift_name']}*\n"
                     f"💰 Сумма: *{deal['amount_ton']} TON*\n"
                     f"👤 {creator_role}: *{creator_nick}*\n"
