@@ -1,5 +1,7 @@
 import re
 import os
+import random
+import string
 import asyncio
 import aiohttp
 from telethon import TelegramClient
@@ -622,9 +624,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         nfts = []
         for lnk in links:
-            data = await parse_nft(lnk)
-            if data:
-                nfts.append(data)
+            try:
+                data = await asyncio.wait_for(parse_nft(lnk), timeout=15)
+                if data:
+                    nfts.append(data)
+            except asyncio.TimeoutError:
+                await update.message.reply_text(f"⚠️ Таймаут при получении данных: `{lnk}`", parse_mode="Markdown")
+            except Exception as e:
+                await update.message.reply_text(f"⚠️ Ошибка: {e}")
 
         if not nfts:
             await update.message.reply_text("❌ Не удалось получить данные ни одного NFT. Попробуйте ещё раз.")
