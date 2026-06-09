@@ -118,6 +118,18 @@ def init_db():
                 created_at        TEXT NOT NULL
             )
         """)
+        # escrow_nfts — список NFT які очікуємо від продавця
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS escrow_nfts (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                deal_id     INTEGER NOT NULL,
+                slug        TEXT NOT NULL,
+                title       TEXT NOT NULL,
+                received    INTEGER DEFAULT 0,
+                created_at  TEXT NOT NULL
+            )
+        """)
+
         # Міграції існуючої таблиці
         for col, definition in [
             ("joiner_id", "INTEGER"),
@@ -127,6 +139,15 @@ def init_db():
         ]:
             try:
                 conn.execute(f"ALTER TABLE escrow_deals ADD COLUMN {col} {definition}")
+            except: pass
+
+        # Міграція deals
+        for col, definition in [
+            ("expected_nft_title", "TEXT"),
+            ("expected_nft_slug", "TEXT"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE deals ADD COLUMN {col} {definition}")
             except: pass
 
     # Міграція — додаємо колонки якщо ще немає

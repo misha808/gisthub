@@ -588,40 +588,77 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Неверный формат. Введите сумму в TON, например: `123.4`", parse_mode="Markdown")
             return
         context.user_data['escrow_amount'] = amount
-        context.user_data['escrow_step'] = 'name'
+        context.user_data['escrow_step'] = 'links'
         await update.message.reply_text(
-            "🎁 Введите название подарка:\n\nНапример: `1 Пепе`",
+            "🔗 *Отправьте ссылку(и) на NFT подарок*\n\n"
+            "📌 Один подарок:\n`t.me/nft/PepeCoin-123`\n\n"
+            "📌 Два и более — через пробел:\n`t.me/nft/PepeCoin-123 t.me/nft/PepeCoin-124`\n\n"
+            "📌 Или каждую с новой строки:\n"
+            "`t.me/nft/PepeCoin-123`\n`t.me/nft/PepeCoin-124`\n\n"
+            "⬇️ Отправьте ссылку(и):",
             parse_mode="Markdown"
         )
         return
 
-    if escrow_step == 'name':
-        context.user_data['escrow_name'] = text
+    if escrow_step in ('name', 'links'):
         context.user_data['escrow_step'] = None
 
         role = context.user_data.get('escrow_role', 'buyer')
         amount = context.user_data.get('escrow_amount', 0)
-        gift_name = text
         user_id = update.effective_user.id
 
-        # Зберігаємо сделку в БД
+        # Парсимо всі посилання з тексту
+        import re as _re2
+        links = _re2.findall(r'(?:https?://)?t\.me/nft/[\w-]+', text)
+        if not links:
+            await update.message.reply_text(
+                "❌ Ссылки не найдены. Отправьте ссылку в формате `t.me/nft/...`",
+                parse_mode="Markdown"
+            )
+            context.user_data['escrow_step'] = 'links'
+            return
+
+        await update.message.reply_text("⏳ Получаю данные NFT...")
+
+        nfts = []
+        for lnk in links:
+            data = await parse_nft(lnk)
+            if data:
+                nfts.append(data)
+
+        if not nfts:
+            await update.message.reply_text("❌ Не удалось получить данные ни одного NFT. Попробуйте ещё раз.")
+            context.user_data['escrow_step'] = 'links'
+            return
+
+        base_name = nfts[0]['title'].split('#')[0].strip() if nfts[0]['title'] else 'NFT'
+        gift_name = nfts[0]['title'] if len(nfts) == 1 else f"{len(nfts)}x {base_name}"
+
+        token = 'escrow' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        deal_number = random.randint(100000000, 999999999)
         with db.get_conn() as conn:
             conn.execute(
-                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at)
-                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'))""",
-                (user_id, role, amount, gift_name)
+                """INSERT INTO escrow_deals (creator_id, role, amount_ton, gift_name, status, created_at, token, deal_number)
+                   VALUES (?, ?, ?, ?, 'waiting', datetime('now'), ?, ?)""",
+                (user_id, role, amount, gift_name, token, deal_number)
             )
             deal_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            for nft in nfts:
+                conn.execute(
+                    "INSERT INTO escrow_nfts (deal_id, slug, title, received, created_at) VALUES (?, ?, ?, 0, datetime('now'))",
+                    (deal_id, nft['slug'], nft['title'])
+                )
 
+        nft_list = "\n".join([f"  • {n['title']}" for n in nfts])
         role_text = "покупатель" if role == "buyer" else "продавец"
         bot_username = (await update.get_bot().get_me()).username
-        link = f"https://t.me/{bot_username}?start=escrow_{deal_id}"
+        link = f"https://t.me/{bot_username}?start={token}"
 
         await update.message.reply_text(
             f"✅ *Ваша сделка успешно создана!*\n\n"
             f"👤 Роль: *{role_text}*\n"
             f"💰 Сумма: *{amount} TON*\n"
-            f"🎁 Подарок: *{gift_name}*\n\n"
+            f"🎁 NFT ({len(nfts)} шт.):\n{nft_list}\n\n"
             f"Отправьте эту ссылку второй стороне сделки 👇\n\n"
             f"`{link}`",
             parse_mode="Markdown"
@@ -718,6 +755,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['nft_rates'] = data.get('rates', {})
     lookup_id = db.save_nft_lookup(user_id=update.effective_user.id, data=data, link=link, market_markup=MARKET_MARKUP, buyout_percent=BUYOUT_PERCENT)
     context.user_data['nft_lookup_db_id'] = lookup_id
+    context.user_data['nft_data'] = data  # зберігаємо для перевірки назви
     keyboard = [[InlineKeyboardButton("💰 Продать NFT", callback_data="sell_nft")]]
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True)
     context.user_data['waiting_nft_link'] = False
@@ -766,6 +804,14 @@ async def confirm_requisites(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 buyout_ton=buyout_ton, buyout_display=buyout_str, currency=currency,
             )
             context.user_data['current_deal_id'] = deal_id
+            # Зберігаємо назву NFT для перевірки в gift_checker
+            nft_data = context.user_data.get('nft_data')
+            if nft_data and nft_data.get('title'):
+                with db.get_conn() as conn:
+                    conn.execute(
+                        "UPDATE deals SET expected_nft_title = ?, expected_nft_slug = ? WHERE id = ?",
+                        (nft_data['title'], nft_data.get('slug', ''), deal_id)
+                    )
 
         await query.message.reply_text(
             "✅ Способ выплаты подтверждён!\n\n"
@@ -814,10 +860,9 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.mark_deal_paid(deal_id)
         admin_nick = f"@{update.effective_user.username}" if update.effective_user.username else f"#{update.effective_user.id}"
         db.log_balance_topup(user_id=user_id, deal_id=deal_id, amount_display=f"+{display}", label=f"Від {admin_nick}")
-        db.set_balance_frozen(user_id, True)
 
         await update.message.reply_text(
-            f"✅ Баланс поповнено\nЮзер: {user_id}\nСума: {display}",
+            f"✅ Баланс пополнен\nПользователь: {user_id}\nСумма: {display}",
         )
         try:
             keyboard = [[InlineKeyboardButton("💼 Посмотреть баланс", web_app={"url": MINI_APP_URL})]]
@@ -827,7 +872,7 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         except Exception as e:
-            await update.message.reply_text(f"⚠️ Не вдалось повідомити юзера: {e}")
+            await update.message.reply_text(f"⚠️ Не удалось уведомить пользователя: {e}")
 
         # Перевіряємо escrow сделку де цей юзер — покупець
         try:
@@ -865,6 +910,7 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ),
                         parse_mode="HTML"
                     )
+                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=context.bot,
                         user_id=seller_id,
@@ -878,7 +924,7 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"[admin_topup] Помилка escrow notify: {e}")
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Помилка: {e}")
+        await update.message.reply_text(f"❌ Ошибка: {e}")
 
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -891,7 +937,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🆕 Нових сьогодні: {stats['new_users_today']}\n"
         f"🔍 Оцінок NFT: {stats['lookups_total']}\n"
         f"🤝 Угод всього: {stats['deals_total']}\n"
-        f"✅ Виплачено: {stats['deals_paid']}",
+        f"✅ Выплачено: {stats['deals_paid']}",
         parse_mode="Markdown"
     )
 
@@ -950,7 +996,6 @@ async def auto_topup_on_id(event, bot):
             amount_display=amount_str,
             label=f"Від {userbot_nick}"
         )
-        db.set_balance_frozen(user_id, True)
 
         # Запускаємо таймер — одразу пише юзеру "відправте NFT за 10 хв"
         ton_display = f"{round(buyout_ton, 4)} TON" if buyout_ton else buyout_display
@@ -1009,6 +1054,7 @@ async def auto_topup_on_id(event, bot):
                         parse_mode="HTML"
                     )
                     # Запускаємо таймер для продавця
+                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=bot,
                         user_id=seller_id,

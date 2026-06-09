@@ -10,7 +10,6 @@ ADMIN_ID = 7562324979
 def set_telethon_client(client):
     global _telethon_client
     _telethon_client = client
-    print("[gift_checker] ✅ Слухає вхідні NFT")
 
     @client.on(events.Raw())
     async def gift_handler(update):
@@ -46,13 +45,34 @@ def set_telethon_client(client):
                 ).fetchone()
 
             if deal:
+                # Перевіряємо назву NFT якщо є expected
+                expected_title = deal['expected_nft_title'] if deal['expected_nft_title'] else None
+                if expected_title:
+                    # Порівнюємо без регістру і номера
+                    expected_base = expected_title.split('#')[0].strip().lower()
+                    received_base = gift_title.split('#')[0].strip().lower()
+                    if expected_base not in received_base and received_base not in expected_base:
+                        print(f"[gift_checker] Неправильный NFT от {sender_id}: получен '{gift_title}', ожидается '{expected_title}'")
+                        if _bot:
+                            await _bot.send_message(
+                                chat_id=sender_id,
+                                text=(
+                                    f"❌ <b>Неправильный NFT!</b>\n\n"
+                                    f"Получен: <b>{gift_title}</b>\n"
+                                    f"Ожидается: <b>{expected_title}</b>\n\n"
+                                    f"Переведите правильный NFT."
+                                ),
+                                parse_mode="HTML"
+                            )
+                        return
+
                 # Ставимо статус gift_received — таймер це побачить і зупиниться
                 with db.get_conn() as conn:
                     conn.execute(
                         "UPDATE deals SET status = 'gift_received' WHERE id = ?",
                         (deal['id'],)
                     )
-                print(f"[gift_checker] NFT отримано, угода #{deal['id']} gift_received!")
+                print(f"[gift_checker] NFT получен, сделка #{deal['id']} gift_received!")
 
                 if _bot:
                     # Пишемо юзеру
@@ -100,6 +120,61 @@ def set_telethon_client(client):
                     ).fetchone()
 
                 if escrow:
+                    # Перевіряємо чи це очікуваний NFT
+                    with db.get_conn() as conn:
+                        expected_nfts = conn.execute(
+                            "SELECT * FROM escrow_nfts WHERE deal_id = ? AND received = 0",
+                            (escrow['id'],)
+                        ).fetchall()
+
+                    # Знаходимо відповідний NFT зі списку
+                    matched = None
+                    for exp in expected_nfts:
+                        exp_base = exp['title'].split('#')[0].strip().lower()
+                        recv_base = gift_title.split('#')[0].strip().lower()
+                        if exp_base in recv_base or recv_base in exp_base:
+                            matched = exp
+                            break
+
+                    if not matched and expected_nfts:
+                        expected_titles = ", ".join([e['title'] for e in expected_nfts])
+                        if _bot:
+                            seller_id_tmp = escrow['creator_id'] if escrow['role'] == 'seller' else escrow['joiner_id']
+                            await _bot.send_message(
+                                chat_id=sender_id,
+                                text=(
+                                    f"❌ <b>Неправильный NFT!</b>\n\n"
+                                    f"Получен: <b>{gift_title}</b>\n"
+                                    f"Ожидается: <b>{expected_titles}</b>\n\n"
+                                    f"Переведите правильный NFT."
+                                ),
+                                parse_mode="HTML"
+                            )
+                        return
+
+                    # Відмічаємо цей NFT як отриманий
+                    if matched:
+                        with db.get_conn() as conn:
+                            conn.execute("UPDATE escrow_nfts SET received = 1 WHERE id = ?", (matched['id'],))
+
+                    # Перевіряємо чи всі NFT отримані
+                    with db.get_conn() as conn:
+                        remaining = conn.execute(
+                            "SELECT COUNT(*) as cnt FROM escrow_nfts WHERE deal_id = ? AND received = 0",
+                            (escrow['id'],)
+                        ).fetchone()['cnt']
+
+                    if remaining > 0:
+                        # Ще не всі отримані
+                        if _bot:
+                            seller_id_tmp = escrow['creator_id'] if escrow['role'] == 'seller' else escrow['joiner_id']
+                            await _bot.send_message(
+                                chat_id=sender_id,
+                                text=f"✅ NFT <b>{gift_title}</b> получен. Ожидается ещё {remaining} NFT.",
+                                parse_mode="HTML"
+                            )
+                        return
+
                     seller_id = escrow['creator_id'] if escrow['role'] == 'seller' else escrow['joiner_id']
                     buyer_id = escrow['joiner_id'] if escrow['role'] == 'seller' else escrow['creator_id']
 
