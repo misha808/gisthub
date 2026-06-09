@@ -290,12 +290,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Перевіряємо чи є deep link escrow
     args = context.args
-    if args and args[0].startswith('escrow_'):
+    if args and args[0].startswith('escrow'):
         try:
-            deal_id = int(args[0].split('_')[1])
+            token = args[0]
             with db.get_conn() as conn:
                 deal = conn.execute(
-                    "SELECT * FROM escrow_deals WHERE id = ?", (deal_id,)
+                    "SELECT * FROM escrow_deals WHERE token = ?", (token,)
                 ).fetchone()
             if deal and deal['status'] == 'waiting':
                 # Не дозволяємо creator приєднатись до своєї ж сделки
