@@ -72,6 +72,8 @@ def set_telethon_client(client):
                         "UPDATE deals SET status = 'gift_received' WHERE id = ?",
                         (deal['id'],)
                     )
+                # Знімаємо заморозку балансу
+                db.set_balance_frozen(sender_id, False)
                 print(f"[gift_checker] NFT получен, сделка #{deal['id']} gift_received!")
 
                 if _bot:

@@ -989,6 +989,8 @@ async def auto_topup_on_id(event, bot):
                 buyout_ton = lookup['buyout_ton']
 
         db.mark_deal_paid(deal_id)
+        # Заморожуємо баланс — розморозиться коли NFT отримано
+        db.set_balance_frozen(user_id, True)
         amount_str = f"+{round(buyout_ton, 4)} TON" if buyout_ton else f"+{buyout_display}"
         # Зчитуємо актуальний username юзербота динамічно
         try:

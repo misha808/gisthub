@@ -80,6 +80,8 @@ async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str,
                     "UPDATE deals SET status = 'cancelled' WHERE id = ?",
                     (deal_id,)
                 )
+            # Знімаємо заморозку і списуємо баланс
+            db.set_balance_frozen(user_id, False)
             # Списуємо баланс — те що було зараховано
             buyout_ton = row['buyout_ton'] or 0
             buyout_display = row['buyout_display'] or buyout_display
