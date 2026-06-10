@@ -26,13 +26,12 @@ def balance():
             (user_id,)
         ).fetchall()
 
-    # Рахуємо TON
-    ton_total = sum(d['buyout_ton'] or 0 for d in deals)
-    if ton_total == 0 and history:
-        for h in history:
-            m = re.search(r'([\d\.]+)\s*TON', h['amount_display'], re.IGNORECASE)
-            if m:
-                ton_total += float(m.group(1))
+    # Рахуємо TON з усіх balance_events (+ поповнення, - списання)
+    ton_total = 0.0
+    for h in history:
+        m = re.search(r'([+-]?[\d\.]+)\s*TON', h['amount_display'], re.IGNORECASE)
+        if m:
+            ton_total += float(m.group(1))
 
     # Останні реквізити юзера
     with db.get_conn() as conn:

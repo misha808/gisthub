@@ -90,7 +90,7 @@ async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str,
                 user_id=user_id,
                 deal_id=deal_id,
                 amount_display=deduct_str,
-                label="Списання: NFT не отримано вчасно"
+                label="Списание: NFT не получен вовремя"
             )
             await bot.send_message(
                 chat_id=user_id,

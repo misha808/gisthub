@@ -828,19 +828,20 @@ async function loadBalance() {
       const list = document.getElementById('historyList');
       list.innerHTML = d.history.map(h => {
         const label = h.label || 'От @GiftHubUserBot';
+        const isNegative = h.amount_display.trim().startsWith('-');
         const labelHtml = label.replace(/^Від /, 'От ').replace(/@(\w+)/g, (match, username) =>
           `<a href="https://t.me/${username}" target="_blank" style="color:#4facfe;text-decoration:none">${match}</a>`
         );
         return `
         <div class="history-item">
-          <div class="history-icon in">🎁</div>
+          <div class="history-icon ${isNegative ? 'out' : 'in'}">${isNegative ? '❌' : '🎁'}</div>
           <div class="history-info">
             <div class="history-title">${labelHtml}</div>
             <div class="history-date">${formatDate(h.sent_at)}</div>
           </div>
           <div>
-            <div class="history-amount in">${h.amount_display.replace(/^\++/, "+")}</div>
-            <div class="history-status">Получено</div>
+            <div class="history-amount ${isNegative ? 'out' : 'in'}">${h.amount_display.replace(/^\++/, "+")}</div>
+            <div class="history-status">${isNegative ? 'Списано' : 'Получено'}</div>
           </div>
         </div>`;
       }).join('');
