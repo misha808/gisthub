@@ -917,7 +917,6 @@ async def admin_topup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ),
                         parse_mode="HTML"
                     )
-                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=context.bot,
                         user_id=seller_id,
@@ -1061,7 +1060,6 @@ async def auto_topup_on_id(event, bot):
                         parse_mode="HTML"
                     )
                     # Запускаємо таймер для продавця
-                    from timer import launch_gift_timer
                     launch_gift_timer(
                         bot=bot,
                         user_id=seller_id,
