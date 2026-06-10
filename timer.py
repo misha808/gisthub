@@ -71,7 +71,7 @@ async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str,
     else:
         with db.get_conn() as conn:
             row = conn.execute(
-                "SELECT status FROM deals WHERE id = ?",
+                "SELECT status, buyout_ton, buyout_display FROM deals WHERE id = ?",
                 (deal_id,)
             ).fetchone()
         if row and row['status'] != 'gift_received':
@@ -80,12 +80,23 @@ async def start_gift_timer(bot, user_id: int, deal_id: int, buyout_display: str,
                     "UPDATE deals SET status = 'cancelled' WHERE id = ?",
                     (deal_id,)
                 )
+            # Списуємо баланс — те що було зараховано
+            buyout_ton = row['buyout_ton'] or 0
+            buyout_display = row['buyout_display'] or buyout_display
+            deduct_str = f"-{round(buyout_ton, 4)} TON" if buyout_ton else f"-{buyout_display}"
+            db.deduct_balance(
+                user_id=user_id,
+                deal_id=deal_id,
+                amount_display=deduct_str,
+                label="Списання: NFT не отримано вчасно"
+            )
             await bot.send_message(
                 chat_id=user_id,
                 text=(
                     "⏰ <b>Время вышло!</b>\n\n"
                     "Подарок не был получен в течение 10 минут.\n"
-                    "Сделка отменена. Если это ошибка — напишите в поддержку."
+                    f"❌ С вашего баланса списано <b>{deduct_str}</b>.\n\n"
+                    "Если это ошибка — напишите в поддержку."
                 ),
                 parse_mode="HTML"
             )

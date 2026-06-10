@@ -22,7 +22,7 @@ API_HASH = "41711038f3c2952df1b3610b1b47443b"
 PRICE_BOT = "PriceNFTbot"
 MINI_APP_URL = "https://gisthub-production.up.railway.app/"  # заміни на свій URL з Railway
 
-MARKET_MARKUP = 1.70
+MARKET_MARKUP = 1.30
 BUYOUT_PERCENT = 0.95
 STARS_PER_RUB = 1.5
 ADMIN_ID = 7562324979

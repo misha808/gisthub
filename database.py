@@ -314,6 +314,15 @@ def get_user_deals(user_id: int) -> list:
 
 # ==================== BALANCE EVENTS ====================
 
+def deduct_balance(user_id: int, deal_id: int, amount_display: str, label: str = "Списання: NFT не отримано"):
+    """Фіксує подію списання балансу (від'ємна сума)."""
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO balance_events (user_id, deal_id, amount_display, label, sent_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, deal_id, amount_display, label, _now()))
+
+
 def log_balance_topup(user_id: int, deal_id: Optional[int],
                       amount_display: str, label: str = "Отримано за NFT"):
     """Фіксує подію поповнення балансу."""
