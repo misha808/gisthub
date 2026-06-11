@@ -781,11 +781,14 @@ let tonRate = 1.71;
 
 async function fetchTonRate() {
   try {
+    console.log('[TON] Запрос курса...');
     const r = await fetch('/api/ton_rate');
     const data = await r.json();
+    console.log('[TON] Ответ:', data);
     if (data?.usd) {
       tonRate = data.usd;
       document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
+      console.log('[TON] Курс обновлён:', tonRate);
       const change = data.change;
       if (change !== undefined) {
         const changeEl = document.getElementById('tonChange');
@@ -794,9 +797,11 @@ async function fetchTonRate() {
           changeEl.className = 'asset-change ' + (change >= 0 ? 'up' : 'down');
         }
       }
+    } else {
+      console.log('[TON] usd = 0 или пустой ответ');
     }
   } catch(e) {
-    console.log('Ошибка получения курса TON:', e);
+    console.log('[TON] Ошибка:', e);
   }
 }
 // Оновлюємо курс кожні 60 секунд

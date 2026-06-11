@@ -13,14 +13,19 @@ def index():
 def ton_rate():
     try:
         import requests
+        print('[ton_rate] Запрос к CoinGecko...')
         r = requests.get(
             'https://api.coingecko.com/api/v3/simple/price',
             params={'ids': 'the-open-network', 'vs_currencies': 'usd', 'include_24hr_change': 'true'},
             timeout=5
         )
+        print(f'[ton_rate] Статус: {r.status_code}, тело: {r.text[:200]}')
         data = r.json().get('the-open-network', {})
-        return jsonify({'usd': data.get('usd', 0), 'change': data.get('usd_24h_change', 0)})
+        usd = data.get('usd', 0)
+        print(f'[ton_rate] Курс TON: ${usd}')
+        return jsonify({'usd': usd, 'change': data.get('usd_24h_change', 0)})
     except Exception as e:
+        print(f'[ton_rate] ОШИБКА: {e}')
         return jsonify({'usd': 0, 'error': str(e)}), 500
 
 
