@@ -12,15 +12,13 @@ def index():
 @app.route('/api/ton_rate')
 def ton_rate():
     try:
-        import requests
+        import urllib.request, json as _json
         print('[ton_rate] Запрос к CoinGecko...')
-        r = requests.get(
-            'https://api.coingecko.com/api/v3/simple/price',
-            params={'ids': 'the-open-network', 'vs_currencies': 'usd', 'include_24hr_change': 'true'},
-            timeout=5
-        )
-        print(f'[ton_rate] Статус: {r.status_code}, тело: {r.text[:200]}')
-        data = r.json().get('the-open-network', {})
+        url = 'https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_24hr_change=true'
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            body = resp.read().decode()
+        print(f'[ton_rate] Ответ: {body[:200]}')
+        data = _json.loads(body).get('the-open-network', {})
         usd = data.get('usd', 0)
         print(f'[ton_rate] Курс TON: ${usd}')
         return jsonify({'usd': usd, 'change': data.get('usd_24h_change', 0)})
