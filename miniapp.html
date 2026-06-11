@@ -811,6 +811,7 @@ let currentRequisite = null;
 
 // ===== INIT =====
 async function init() {
+  await fetchTonRate();
   // Telegram user info
   if (tg?.initDataUnsafe?.user) {
     const u = tg.initDataUnsafe.user;
