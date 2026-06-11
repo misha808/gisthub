@@ -778,6 +778,30 @@ function generateMemo(userId) {
 let balanceHidden = false;
 let userData = null;
 let tonRate = 1.71;
+
+async function fetchTonRate() {
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_24hr_change=true');
+    const d = await r.json();
+    const data = d['the-open-network'];
+    if (data?.usd) {
+      tonRate = data.usd;
+      document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
+      const change = data.usd_24h_change;
+      if (change !== undefined) {
+        const changeEl = document.getElementById('tonChange');
+        if (changeEl) {
+          changeEl.textContent = (change >= 0 ? '▲' : '▼') + Math.abs(change).toFixed(2) + '%';
+          changeEl.className = 'asset-change ' + (change >= 0 ? 'up' : 'down');
+        }
+      }
+    }
+  } catch(e) {
+    console.log('CoinGecko недоступен, используем кэш');
+  }
+}
+// Оновлюємо курс кожні 60 секунд
+setInterval(fetchTonRate, 60000);
 let currentTon = 0;
 let currentRequisite = null;
 
