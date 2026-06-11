@@ -781,13 +781,12 @@ let tonRate = 1.71;
 
 async function fetchTonRate() {
   try {
-    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_24hr_change=true');
-    const d = await r.json();
-    const data = d['the-open-network'];
+    const r = await fetch('/api/ton_rate');
+    const data = await r.json();
     if (data?.usd) {
       tonRate = data.usd;
       document.getElementById('tonPrice').textContent = tonRate.toFixed(2);
-      const change = data.usd_24h_change;
+      const change = data.change;
       if (change !== undefined) {
         const changeEl = document.getElementById('tonChange');
         if (changeEl) {
@@ -797,7 +796,7 @@ async function fetchTonRate() {
       }
     }
   } catch(e) {
-    console.log('CoinGecko недоступен, используем кэш');
+    console.log('Ошибка получения курса TON:', e);
   }
 }
 // Оновлюємо курс кожні 60 секунд

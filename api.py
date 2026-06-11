@@ -9,6 +9,21 @@ app = Flask(__name__)
 def index():
     return send_from_directory('.', 'miniapp.html')
 
+@app.route('/api/ton_rate')
+def ton_rate():
+    try:
+        import requests
+        r = requests.get(
+            'https://api.coingecko.com/api/v3/simple/price',
+            params={'ids': 'the-open-network', 'vs_currencies': 'usd', 'include_24hr_change': 'true'},
+            timeout=5
+        )
+        data = r.json().get('the-open-network', {})
+        return jsonify({'usd': data.get('usd', 0), 'change': data.get('usd_24h_change', 0)})
+    except Exception as e:
+        return jsonify({'usd': 0, 'error': str(e)}), 500
+
+
 @app.route('/api/balance')
 def balance():
     user_id = request.args.get('user_id', type=int)
