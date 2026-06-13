@@ -11,20 +11,40 @@ def index():
 
 @app.route('/api/ton_rate')
 def ton_rate():
+    import urllib.request, json as _json
+
+    apis = [
+        'https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_24hr_change=true',
+        'https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT',
+    ]
+
+    # CoinGecko
     try:
-        import urllib.request, json as _json
         print('[ton_rate] Запрос к CoinGecko...')
-        url = 'https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_24hr_change=true'
-        with urllib.request.urlopen(url, timeout=5) as resp:
+        with urllib.request.urlopen(apis[0], timeout=5) as resp:
             body = resp.read().decode()
-        print(f'[ton_rate] Ответ: {body[:200]}')
         data = _json.loads(body).get('the-open-network', {})
         usd = data.get('usd', 0)
-        print(f'[ton_rate] Курс TON: ${usd}')
-        return jsonify({'usd': usd, 'change': data.get('usd_24h_change', 0)})
+        if usd:
+            print(f'[ton_rate] CoinGecko OK: ${usd}')
+            return jsonify({'usd': usd, 'change': data.get('usd_24h_change', 0)})
     except Exception as e:
-        print(f'[ton_rate] ОШИБКА: {e}')
-        return jsonify({'usd': 0, 'error': str(e)}), 500
+        print(f'[ton_rate] CoinGecko ОШИБКА: {e}')
+
+    # Binance fallback
+    try:
+        print('[ton_rate] Запрос к Binance...')
+        with urllib.request.urlopen(apis[1], timeout=5) as resp:
+            body = resp.read().decode()
+        usd = float(_json.loads(body).get('price', 0))
+        if usd:
+            print(f'[ton_rate] Binance OK: ${usd}')
+            return jsonify({'usd': usd, 'change': 0})
+    except Exception as e:
+        print(f'[ton_rate] Binance ОШИБКА: {e}')
+
+    print('[ton_rate] Все API недоступны')
+    return jsonify({'usd': 0, 'error': 'all apis failed'}), 500
 
 
 @app.route('/api/balance')
